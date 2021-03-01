@@ -1,0 +1,23 @@
+# models
+models
+
+# media
+*.mov
+
+# logs and plots
+logs 
+plots 
+
+# prediction results
+results
+
+# build folder
+build
+
+# set exceptions
+!src/models
+
+# other folders
+__pycache__
+.ipynb_checkpoints
+tmp
