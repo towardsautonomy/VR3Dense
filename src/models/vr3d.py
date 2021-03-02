@@ -361,12 +361,16 @@ class DenseDepth(nn.Module):
 
 class VR3Dense(nn.Module):
 
-    def __init__(self, in_channels, n_xgrids, n_ygrids, obj_label_len, base_filters=8, n_blocks=6, dense_depth=True):
+    def __init__(self, in_channels, n_xgrids, n_ygrids, obj_label_len, base_filters=8, n_blocks=6, dense_depth=True, train_depth_only=False, train_obj_only=False):
         super(VR3Dense, self).__init__()
 
         self.dense_depth = dense_depth
         self.depth_latent_vector_len = 0
         self.latent_vector_len = (n_xgrids*n_ygrids*obj_label_len)
+        self.train_depth_only = train_depth_only
+        self.train_obj_only = train_obj_only
+        if (train_depth_only == True) and (train_obj_only == True):
+            raise Exception('Only one of \'train_depth_only\', \'train_obj_only\' can be set to true at a time.')
         
         if dense_depth:
             self.depth_latent_vector_len = 8192
@@ -378,15 +382,29 @@ class VR3Dense(nn.Module):
         self.lidar_object_detection_fc = LidarObjectDetection_FC(n_xgrids, n_ygrids, fc_in_dim, obj_label_len)
     
     def forward(self, x_lidar, x_camera):
-        latent_vector = self.lidar_object_detection_cnn(x_lidar)
+        if self.train_depth_only:
+            with torch.no_grad():
+                latent_vector = self.lidar_object_detection_cnn(x_lidar)
+        else:
+            latent_vector = self.lidar_object_detection_cnn(x_lidar)
         depth_pred = None
 
         if self.dense_depth:
-            x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
-            depth_latent_vector = x5
-            depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
+            if self.train_obj_only:
+                with torch.no_grad():
+                    x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
+                    depth_latent_vector = x5
+                    depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
+            else:
+                x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
+                depth_latent_vector = x5
+                depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
 
-        object_pose_pred = self.lidar_object_detection_fc(latent_vector)
+        if self.train_depth_only:
+            with torch.no_grad():
+                object_pose_pred = self.lidar_object_detection_fc(latent_vector)
+        else:
+            object_pose_pred = self.lidar_object_detection_fc(latent_vector)
 
         if self.dense_depth:
             return_tuple = (object_pose_pred, depth_pred)

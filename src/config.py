@@ -56,6 +56,10 @@ def parse_args():
                         help='image size to be resized in y direction')
     parser.add_argument('--dense_depth', default=False, action='store_true',
                         help='whether or not to use RGB-to-dense depth prediction network')
+    parser.add_argument('--train_depth_only', default=False, action='store_true',
+                        help='whether or not to train only the depth prediction network')
+    parser.add_argument('--train_obj_only', default=False, action='store_true',
+                        help='whether or not to train only the object detection network')
     parser.add_argument('--exp_id', type=str, default='None',
                         help='experiment identifier')
 

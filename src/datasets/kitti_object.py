@@ -183,7 +183,9 @@ class KITTIObjectDataset(Dataset):
         # read right image
         right_img = cv2.cvtColor(cv2.imread(right_image_filename), cv2.COLOR_BGR2RGB)
         right_img = cv2.resize(right_img, self.img_resolution, interpolation=cv2.INTER_LINEAR)
+        right_img_resized = cv2.resize(right_img, self.img_size)
         right_img = np.transpose(right_img, (2,0,1))
+        right_img_resized = np.transpose(right_img_resized, (2,0,1))
 
         # read point-cloud
         velo_pc = read_velo_bin(velodyne_filename)
@@ -204,33 +206,18 @@ class KITTIObjectDataset(Dataset):
         projected_img[projected_img > self.xlim[1]] = self.xlim[1]
         projected_img = projected_img[np.newaxis, ...]
 
-        sample = {'cloud': velo_pc_filtered, \
-                  'cloud_voxelized': velo_pc_vol, \
-                  'left_image': left_img, \
-                  'left_image_resized': left_img_resized, \
-                  'right_image': right_img, \
-                  'lidar_cam_projection': projected_img, \
-                  'label_dict': label_dict_list, \
-                  'label_vector':label_vector, \
+        sample = {'cloud': velo_pc_filtered,                    \
+                  'cloud_voxelized': velo_pc_vol,               \
+                  'left_image': left_img,                       \
+                  'left_image_resized': left_img_resized,       \
+                  'right_image': right_img,                     \
+                  'right_image_resized': right_img_resized,     \
+                  'lidar_cam_projection': projected_img,        \
+                  'label_dict': label_dict_list,                \
+                  'label_vector':label_vector,                  \
                   'cloud_filename':self.velodyne_filenames[idx]}
 
         return sample
-
-    # normalize
-    def normalize_img(self, img):
-        return (img / 255.0) - 0.5
-
-    # denormalize
-    def denormalize_img(self, img):
-        return (img + 0.5) * 255.0
-
-    # normalize
-    def normalize_depth(self, depth):
-        return (depth * 2.0 / self.xlim[1]) - 1.0
-
-    # denormalize
-    def denormalize_depth(self, depth):
-        return (depth + 1.0) * (self.xlim[1] / 2)
 
 # main function
 if __name__ == '__main__':
@@ -238,6 +225,10 @@ if __name__ == '__main__':
 
     dataset = KITTIObjectDataset('/media/shubham/GoldMine/datasets/KITTI/object', \
                                  n_xgrids=32, n_ygrids=32)
+
+    # visualization window
+    cv2.namedWindow('VR3Dense', cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('VR3Dense', 900, 1440)
     # show 100 samples
     for i in range(100): 
         sample = dataset[i]
@@ -248,7 +239,36 @@ if __name__ == '__main__':
         pc_voxelized = volume_to_point_cloud(sample['cloud_voxelized'], vol_size=(512,512,32), xlim=dataset.xlim, ylim=dataset.ylim, zlim=dataset.zlim)
 
         # draw point-cloud
-        pc_bbox_img = draw_point_cloud_w_bbox(pc_voxelized, label_dict, canvasSize=1200)
+        canvasSize = 1200
+        pc_bbox_img = draw_point_cloud_w_bbox(pc_voxelized, label_dict, canvasSize=canvasSize)
+
+        # get labels in camera coordinate system
+        label_cam = label_lidar2cam(label_dict, dataset.T_lidar2cam)
+        # draw bounding box on image
+        img_rgb = np.transpose(sample['left_image'], (1,2,0))
+        img_rgb = draw_bbox_img(img_rgb, label_cam, dataset.K)
+
+        # resize image
+        scale_factor = canvasSize / img_rgb.shape[1] 
+        width = int(img_rgb.shape[1] * scale_factor)
+        height = int(img_rgb.shape[0] * scale_factor)
+        img_rgb = cv2.resize(img_rgb, (width, height), interpolation = cv2.INTER_AREA) 
+        img_rgb = np.array(img_rgb, dtype=np.uint8)
+        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+
         pc_bbox_img_bgr = cv2.cvtColor(pc_bbox_img, cv2.COLOR_RGB2BGR)
-        cv2.imshow('pc_topdown', pc_bbox_img_bgr)
+        pc_bbox_img_bgr = np.array(pc_bbox_img_bgr*255.0, dtype=np.uint8)
+
+        # points on image
+        projected_pts = np.squeeze(sample['lidar_cam_projection'], 0)
+        projected_pts = colorize_depth_map(projected_pts)
+        projected_pts = cv2.resize(projected_pts, (width, height), interpolation = cv2.INTER_NEAREST) 
+        projected_pts = cv2.cvtColor(projected_pts, cv2.COLOR_RGB2BGR)
+        projected_pts = np.array(projected_pts, dtype=np.uint8)
+        projected_pts = draw_bbox_img(projected_pts, label_cam, dataset.K)
+
+        # concat image with point-cloud 
+        img_viz = cv2.vconcat([img_bgr, projected_pts, pc_bbox_img_bgr])
+
+        cv2.imshow('VR3Dense', img_viz)
         cv2.waitKey(0)

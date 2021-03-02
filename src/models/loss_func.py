@@ -354,33 +354,45 @@ def depth_aware_smooth_loss(img, depth_pred):
 
     return edge_aware_smooth_loss_
 
-class DepthAppearanceMatchingLoss(nn.Module):
+class DepthUnsupervisedLoss(nn.Module):
     '''
-    Following MonoDepth paper: https://arxiv.org/pdf/1609.03677.pdf
+    Inspired by Monodepth: https://arxiv.org/pdf/1609.03677.pdf
     '''
     def __init__(self, lambda_weight=1.0):
-        super(DepthAppearanceMatchingLoss, self).__init__()
+        super(DepthUnsupervisedLoss, self).__init__()
         self.lambda_weight = lambda_weight
         self.alpha = 0.1
+        # huber norm
+        self.huber_norm = torch.nn.SmoothL1Loss(reduction='mean', beta=1.0)
 
-    def forward(self, img_left, img_right, depth_pred, f, baseline):
-        depth, disparity_l2r, img_right_warped, warping_mask_l2r, l2r_l1_err, img_left_warped, warping_mask_r2l, r2l_l1_err = \
-            reproject_lr_disparity(img_left, img_right, depth_pred, f, baseline)
+    def forward(self, img_left, img_right, depth_pred_left, depth_pred_right, f, baseline):
+        depth_l, disparity_l2r, img_right_warped, warping_mask_l2r, l2r_repr_err, img_left_warped, warping_mask_r2l, r2l_repr_err = \
+            reproject_lr_disparity(img_left, img_right, depth_pred_left, f, baseline, camera='left')
+
+        depth_r, disparity_r2l, img_left_warped_2, warping_mask_r2l_2, r2l_repr_err_2, img_right_warped_2, warping_mask_l2r_2, l2r_repr_err_2 = \
+            reproject_lr_disparity(img_left, img_right, depth_pred_right, f, baseline, camera='right')
 
         # compute reprojection loss
-        l2r_l1_loss = torch.mean(l2r_l1_err)
-        r2l_l1_loss = torch.mean(r2l_l1_err)
-        recon_l1_loss = (l2r_l1_loss + r2l_l1_loss) / 2.
+        l2r_repr_loss = torch.mean(l2r_repr_err)
+        r2l_repr_loss = torch.mean(r2l_repr_err)
+        l2r_repr_loss_2 = torch.mean(l2r_repr_err_2)
+        r2l_repr_loss_2 = torch.mean(r2l_repr_err_2)
+        recon_repr_loss = (l2r_repr_loss + r2l_repr_loss + l2r_repr_loss_2 + r2l_repr_loss_2) / 4.
 
         # compute SSIM
         ssim_l2r = ssim(img_left, img_left_warped)
         ssim_r2l = ssim(img_right, img_right_warped)
-        ssim_loss = (ssim_l2r + ssim_r2l) / 2.
+        ssim_l2r_2 = ssim(img_left, img_left_warped_2)
+        ssim_r2l_2 = ssim(img_right, img_right_warped_2)
+        ssim_loss = (ssim_l2r + ssim_r2l + ssim_l2r_2 + ssim_r2l_2) / 4.
 
         # appearance matching loss
-        appearance_match_loss = (self.alpha * (1. - ssim_loss) / 2.0) + ((1. - self.alpha) * recon_l1_loss)
+        appearance_match_loss = (self.alpha * (1. - ssim_loss) / 2.0) + ((1. - self.alpha) * recon_repr_loss)
+
+        # left-right consistency loss
+        lr_consistency_loss = self.huber_norm(disparity_l2r, -disparity_r2l)
         
-        return self.lambda_weight *  appearance_match_loss
+        return self.lambda_weight * (appearance_match_loss + lr_consistency_loss)
 
 '''
 Implementation of SSIM referred from: https://github.com/ialhashim/DenseDepth/blob/master/PyTorch/loss.py

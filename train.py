@@ -47,7 +47,8 @@ if __name__ == "__main__":
     
     # define model
     obj_label_len = len(pose_fields) + len(label_map) # 9 for poses, rest for object classes
-    model = VR3Dense(in_channels=1, n_xgrids=args.n_xgrids, n_ygrids=args.n_ygrids, obj_label_len=obj_label_len, dense_depth=args.dense_depth)
+    model = VR3Dense(in_channels=1, n_xgrids=args.n_xgrids, n_ygrids=args.n_ygrids, obj_label_len=obj_label_len, \
+                    dense_depth=args.dense_depth, train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only)
     model = model.to(device)
     
     # print model summary

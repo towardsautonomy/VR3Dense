@@ -107,14 +107,14 @@ class Trainer(object):
             self.yaw_loss = YawLoss(lambda_weight=1.0)
             self.iou_loss = IOULoss(lambda_weight=0.1)
             self.class_loss = ClassLoss(lambda_weight=0.2)
-            self.depth_appearance_match_loss = DepthAppearanceMatchingLoss(lambda_weight=1.0)
-            self.depth_l2_loss = DepthL2Loss(lambda_weight=1.0)
-            self.depth_smoothness_loss = DepthSmoothnessLoss(lambda_weight=1.0)
+            self.depth_unsupervised_loss = DepthUnsupervisedLoss(lambda_weight=1.0)
+            self.depth_l2_loss = DepthL2Loss(lambda_weight=0.1)
+            self.depth_smoothness_loss = DepthSmoothnessLoss(lambda_weight=0.1)
             # Mean IOU
             self.mean_iou = MeanIOU()
 
     def collate_fn(self, batch):
-        return zip(*[(b['cloud_voxelized'], b['label_vector'], b['left_image_resized'], b['lidar_cam_projection'], b['left_image'], b['right_image']) for b in batch])
+        return zip(*[(b['cloud_voxelized'], b['label_vector'], b['left_image_resized'], b['right_image_resized'], b['lidar_cam_projection'], b['left_image'], b['right_image']) for b in batch])
 
     def train(self):
         """
@@ -195,12 +195,14 @@ class Trainer(object):
                 # iterate over mini batches
                 for i_batch, sample_batched in enumerate(self.train_dataloader):
                     # get data and labels
-                    x_lidar_batch, y_pose_batch, x_left_batch, y_lidar_cam_projection_batch, left_img_batch, right_img_batch = sample_batched
+                    x_lidar_batch, y_pose_batch, x_left_batch, x_right_batch, y_lidar_cam_projection_batch, left_img_batch, right_img_batch = sample_batched
                     x_lidar_batch = np.expand_dims(x_lidar_batch, 1).astype(np.float32)
                     x_lidar_batch = torch.from_numpy(x_lidar_batch).to(device)
                     y_pose_batch = torch.Tensor(y_pose_batch).to(device)
                     x_left_batch = torch.from_numpy(np.asarray(x_left_batch, dtype=np.float32)).to(device)
-                    x_left_batch = self.dataset.normalize_img(x_left_batch)
+                    x_left_batch = normalize_img(x_left_batch)
+                    x_right_batch = torch.from_numpy(np.asarray(x_right_batch, dtype=np.float32)).to(device)
+                    x_right_batch = normalize_img(x_right_batch)
                     y_lidar_cam_projection_batch = torch.from_numpy(np.asarray(y_lidar_cam_projection_batch, dtype=np.float32)).to(device)
 
                     # set optimizer grads to zero
@@ -209,7 +211,9 @@ class Trainer(object):
                     # forward pass
                     pred_tuple = self.model(x_lidar_batch, x_left_batch)
                     if self.dense_depth:
-                        pose_pred, depth_pred = pred_tuple
+                        pose_pred, depth_pred_left = pred_tuple
+                        _, depth_pred_right = self.model(x_lidar_batch, x_right_batch)
+                        _.detach()
                     else:
                         pose_pred = pred_tuple
 
@@ -226,21 +230,21 @@ class Trainer(object):
                     class_loss = self.class_loss(y_pose_batch, pose_pred)
                     depth_l2_loss = torch.Tensor([0.])
                     depth_smooth_loss = torch.Tensor([0.])
-                    depth_appearance_match_loss = torch.Tensor([0.])
+                    depth_unsupervised_loss = torch.Tensor([0.])
                     if self.dense_depth:
                         # reprojection loss
                         left_img_batch = torch.from_numpy(np.asarray(left_img_batch, dtype=np.float32)).to(device)
-                        left_img_batch = self.dataset.normalize_img(left_img_batch)
+                        left_img_batch = normalize_img(left_img_batch)
                         right_img_batch = torch.from_numpy(np.asarray(right_img_batch, dtype=np.float32)).to(device)
-                        right_img_batch = self.dataset.normalize_img(right_img_batch)
+                        right_img_batch = normalize_img(right_img_batch)
 
-                        depth_appearance_match_loss = self.depth_appearance_match_loss(left_img_batch, right_img_batch, self.dataset.denormalize_depth(depth_pred), self.dataset.fx, self.dataset.baseline)
+                        depth_unsupervised_loss = self.depth_unsupervised_loss(left_img_batch, right_img_batch, denormalize_depth(depth_pred_left, self.xlim[1]), denormalize_depth(depth_pred_right, self.xlim[1]), self.dataset.fx, self.dataset.baseline)
                         # l2 loss
                         depth_mask = (y_lidar_cam_projection_batch > 0)
-                        depth_l2_loss = self.depth_l2_loss(self.dataset.normalize_depth(y_lidar_cam_projection_batch), depth_pred, depth_mask)
+                        depth_l2_loss = self.depth_l2_loss(normalize_depth(y_lidar_cam_projection_batch, self.xlim[1]), depth_pred_left, depth_mask)
                         # edge-aware-smoothing loss
-                        depth_smooth_loss = self.depth_smoothness_loss(x_left_batch, depth_pred)
-                    depth_loss = depth_appearance_match_loss + depth_l2_loss + depth_smooth_loss
+                        depth_smooth_loss = self.depth_smoothness_loss(x_left_batch, depth_pred_left)
+                    depth_loss = depth_unsupervised_loss + depth_l2_loss + depth_smooth_loss
 
                     obj_loss = conf_loss + x_loss + y_loss + z_loss + l_loss + w_loss + h_loss + yaw_loss + iou_loss + class_loss
                     total_loss = obj_loss + depth_loss
@@ -252,20 +256,20 @@ class Trainer(object):
                     # one optimization step
                     self.optimizer.step()
                     # add to dictionary for logs
-                    train_loss = {  'conf_loss':                   conf_loss.item(), 
-                                    'x_loss':                      x_loss.item(), 
-                                    'y_loss':                      y_loss.item(),
-                                    'z_loss':                      z_loss.item(),
-                                    'l_loss':                      l_loss.item(),
-                                    'w_loss':                      w_loss.item(),
-                                    'h_loss':                      h_loss.item(),
-                                    'yaw_loss':                    yaw_loss.item(),
-                                    'iou_loss':                    iou_loss.item(),
-                                    'class_loss':                  class_loss.item(),
-                                    'depth_appearance_match_loss': depth_appearance_match_loss.item(),
-                                    'depth_l2_loss':               depth_l2_loss.item(),
-                                    'depth_smooth_loss':           depth_smooth_loss.item(),
-                                    'total_loss':                  total_loss.item()}
+                    train_loss = {  'conf_loss':               conf_loss.item(), 
+                                    'x_loss':                  x_loss.item(), 
+                                    'y_loss':                  y_loss.item(),
+                                    'z_loss':                  z_loss.item(),
+                                    'l_loss':                  l_loss.item(),
+                                    'w_loss':                  w_loss.item(),
+                                    'h_loss':                  h_loss.item(),
+                                    'yaw_loss':                yaw_loss.item(),
+                                    'iou_loss':                iou_loss.item(),
+                                    'class_loss':              class_loss.item(),
+                                    'depth_unsupervised_loss': depth_unsupervised_loss.item(),
+                                    'depth_l2_loss':           depth_l2_loss.item(),
+                                    'depth_smooth_loss':       depth_smooth_loss.item(),
+                                    'total_loss':              total_loss.item()}
                     train_losses.append(total_loss.item())
                     
                     # log to tensorboard
@@ -281,9 +285,9 @@ class Trainer(object):
                     time_remaining = max(0.0, ((len(self.train_dataloader) * time_per_batch) - time_taken))
                     time_remaining_formatted = time.strftime("%H:%M:%S", time.gmtime(time_remaining))
                     # print stats
-                    print('\rEpoch: [{:4d}] | Step: [{:4d}] | Training Loss [conf: {:.4f}, x: {:.4f}, y: {:.4f}, z: {:.4f}, l: {:.4f}, w: {:.4f}, h: {:.4f}, yaw: {:.4f}, iou: {:.4f}, class: {:.4f}, depth_appear: {:.4f}, depth_l2: {:.4f}, depth_smooth: {:.4f}, total: {:.4f}] | Mean IOU: {:.4f} | time taken: {} | time remaining: {}       '.format(
+                    print('\rEpoch: [{:4d}] | Step: [{:4d}] | Training Loss [conf: {:.4f}, x: {:.4f}, y: {:.4f}, z: {:.4f}, l: {:.4f}, w: {:.4f}, h: {:.4f}, yaw: {:.4f}, iou: {:.4f}, class: {:.4f}, depth_unsup: {:.4f}, depth_l2: {:.4f}, depth_smooth: {:.4f}, total: {:.4f}] | Mean IOU: {:.4f} | time taken: {} | time remaining: {}       '.format(
                                 epoch, i_batch, train_loss['conf_loss'], train_loss['x_loss'], train_loss['y_loss'], train_loss['z_loss'], train_loss['l_loss'], train_loss['w_loss'], 
-                                train_loss['h_loss'], train_loss['yaw_loss'], train_loss['iou_loss'], train_loss['class_loss'], train_loss['depth_appearance_match_loss'], train_loss['depth_l2_loss'], 
+                                train_loss['h_loss'], train_loss['yaw_loss'], train_loss['iou_loss'], train_loss['class_loss'], train_loss['depth_unsupervised_loss'], train_loss['depth_l2_loss'], 
                                 train_loss['depth_smooth_loss'], train_loss['total_loss'], train_mean_iou, time_taken_formatted, time_remaining_formatted), end='')
                 
                     # # uncomment if you want to limit number of steps per epoch
@@ -298,7 +302,7 @@ class Trainer(object):
                 self.model.eval()
                 val_conf_losses,val_x_losses,val_y_losses,val_z_losses,\
                     val_l_losses,val_w_losses,val_h_losses,val_yaw_losses,\
-                    val_iou_losses, val_class_losses,val_depth_reproj_losses,\
+                    val_iou_losses, val_class_losses,val_depth_unsup_losses,\
                         val_depth_l2_losses,val_depth_smooth_losses,val_total_losses = \
                         [],[],[],[],[],[],[],[],[],[],[],[],[],[]
 
@@ -306,19 +310,22 @@ class Trainer(object):
                 # iterate over mini batches
                 for i_batch, sample_batched in enumerate(self.test_dataloader):
                     # get data and labels
-                    x_lidar_batch, y_pose_batch, x_left_batch, y_lidar_cam_projection_batch, left_img_batch, right_img_batch = sample_batched
+                    x_lidar_batch, y_pose_batch, x_left_batch, x_right_batch, y_lidar_cam_projection_batch, left_img_batch, right_img_batch = sample_batched
                     x_lidar_batch = np.expand_dims(x_lidar_batch, 1).astype(np.float32)
                     x_lidar_batch = torch.from_numpy(x_lidar_batch).to(device)
                     y_pose_batch = torch.Tensor(y_pose_batch).to(device)
                     x_left_batch = torch.from_numpy(np.asarray(x_left_batch, dtype=np.float32)).to(device)
-                    x_left_batch = self.dataset.normalize_img(x_left_batch)
+                    x_left_batch = normalize_img(x_left_batch)
+                    x_right_batch = torch.from_numpy(np.asarray(x_right_batch, dtype=np.float32)).to(device)
+                    x_right_batch = normalize_img(x_right_batch)
                     y_lidar_cam_projection_batch = torch.from_numpy(np.asarray(y_lidar_cam_projection_batch, dtype=np.float32)).to(device)
 
                     # forward pass
                     with torch.no_grad():
                         pred_tuple = self.model(x_lidar_batch, x_left_batch)
                         if self.dense_depth:
-                            pose_pred, depth_pred = pred_tuple
+                            pose_pred, depth_pred_left = pred_tuple
+                            _, depth_pred_right = self.model(x_lidar_batch, x_right_batch)
                         else:
                             pose_pred = pred_tuple
 
@@ -335,21 +342,21 @@ class Trainer(object):
                     class_loss = self.class_loss(y_pose_batch, pose_pred)
                     depth_l2_loss = torch.Tensor([0.])
                     depth_smooth_loss = torch.Tensor([0.])
-                    depth_appearance_match_loss = torch.Tensor([0.])
+                    depth_unsupervised_loss = torch.Tensor([0.])
                     if self.dense_depth:
                         # reprojection loss
                         left_img_batch = torch.from_numpy(np.asarray(left_img_batch, dtype=np.float32)).to(device)
-                        left_img_batch = self.dataset.normalize_img(left_img_batch)
+                        left_img_batch = normalize_img(left_img_batch)
                         right_img_batch = torch.from_numpy(np.asarray(right_img_batch, dtype=np.float32)).to(device)
-                        right_img_batch = self.dataset.normalize_img(right_img_batch)
+                        right_img_batch = normalize_img(right_img_batch)
 
-                        depth_appearance_match_loss = self.depth_appearance_match_loss(left_img_batch, right_img_batch, self.dataset.denormalize_depth(depth_pred), self.dataset.fx, self.dataset.baseline)
+                        depth_unsupervised_loss = self.depth_unsupervised_loss(left_img_batch, right_img_batch, denormalize_depth(depth_pred_left, self.xlim[1]), denormalize_depth(depth_pred_right, self.xlim[1]), self.dataset.fx, self.dataset.baseline)
                         # l2 loss
                         depth_mask = (y_lidar_cam_projection_batch > 0)
-                        depth_l2_loss = self.depth_l2_loss(self.dataset.normalize_depth(y_lidar_cam_projection_batch), depth_pred, depth_mask)
+                        depth_l2_loss = self.depth_l2_loss(normalize_depth(y_lidar_cam_projection_batch, self.xlim[1]), depth_pred_left, depth_mask)
                         # edge-aware-smoothing loss
-                        depth_smooth_loss = self.depth_smoothness_loss(x_left_batch, depth_pred)
-                    depth_loss = depth_appearance_match_loss + depth_l2_loss + depth_smooth_loss
+                        depth_smooth_loss = self.depth_smoothness_loss(x_left_batch, depth_pred_left)
+                    depth_loss = depth_unsupervised_loss + depth_l2_loss + depth_smooth_loss
 
                     obj_loss = conf_loss + x_loss + y_loss + z_loss + l_loss + w_loss + h_loss + yaw_loss + iou_loss + class_loss
                     total_loss = obj_loss + depth_loss
@@ -367,16 +374,16 @@ class Trainer(object):
                     val_yaw_losses.append(yaw_loss.item())
                     val_iou_losses.append(iou_loss.item())
                     val_class_losses.append(class_loss.item())
-                    val_depth_reproj_losses.append(depth_appearance_match_loss.item())
+                    val_depth_unsup_losses.append(depth_unsupervised_loss.item())
                     val_depth_l2_losses.append(depth_l2_loss.item())
                     val_depth_smooth_losses.append(depth_smooth_loss.item())
                     val_total_losses.append(total_loss.item())
                     val_mean_iou_list.append(val_mean_iou.item())
 
-                    # perform validation only on 3 batches
-                    if i_batch == 2:
+                    # perform validation only on 2 batches
+                    if i_batch == 1:
                         # add visualizations to tensorboard
-                        x_lidar_batch, y_pose_batch, x_left_batch, y_lidar_cam_projection_batch, left_img_batch, right_img_batch = next(iter(self.test_dataloader))
+                        x_lidar_batch, y_pose_batch, x_left_batch, x_right_batch, y_lidar_cam_projection_batch, left_img_batch, right_img_batch = next(iter(self.test_dataloader))
                         sample_test_indices = random.sample(range(len(self.test_dataset)), 4)
                         for k, sample_idx in enumerate(sample_test_indices):
                             sample = self.test_dataset[sample_idx]
@@ -430,7 +437,7 @@ class Trainer(object):
                               'yaw_loss':                    np.mean(val_yaw_losses),
                               'iou_loss':                    np.mean(val_iou_losses),
                               'class_loss':                  np.mean(val_class_losses),
-                              'depth_appearance_match_loss': np.mean(val_depth_reproj_losses),
+                              'depth_unsupervised_loss': np.mean(val_depth_unsup_losses),
                               'depth_l2_loss':               np.mean(val_depth_l2_losses),
                               'depth_smooth_loss':           np.mean(val_depth_smooth_losses),
                               'total_loss':                  np.mean(val_total_losses)}
@@ -447,13 +454,13 @@ class Trainer(object):
                                                                         \
                                                                         ', end='')
                 print('\rEpoch: [{:4d}]   | \
-                        \nTraining Loss   | [conf: {:.4f}, x: {:.4f}, y: {:.4f}, z: {:.4f}, l: {:.4f}, w: {:.4f}, h: {:.4f}, yaw: {:.4f}, iou: {:.4f}, class: {:.4f}, depth_appear: {:.4f}, depth_l2: {:.4f}, depth_smooth: {:.4f}, total: {:.4f}] | Mean IOU: {:.4f} | time taken: {}'.format(
+                        \nTraining Loss   | [conf: {:.4f}, x: {:.4f}, y: {:.4f}, z: {:.4f}, l: {:.4f}, w: {:.4f}, h: {:.4f}, yaw: {:.4f}, iou: {:.4f}, class: {:.4f}, depth_unsup: {:.4f}, depth_l2: {:.4f}, depth_smooth: {:.4f}, total: {:.4f}] | Mean IOU: {:.4f} | time taken: {}'.format(
                             epoch, train_loss['conf_loss'], train_loss['x_loss'], train_loss['y_loss'], train_loss['z_loss'], train_loss['l_loss'], train_loss['w_loss'], 
-                            train_loss['h_loss'], train_loss['yaw_loss'], train_loss['iou_loss'], train_loss['class_loss'], train_loss['depth_appearance_match_loss'], train_loss['depth_l2_loss'], train_loss['depth_smooth_loss'], 
+                            train_loss['h_loss'], train_loss['yaw_loss'], train_loss['iou_loss'], train_loss['class_loss'], train_loss['depth_unsupervised_loss'], train_loss['depth_l2_loss'], train_loss['depth_smooth_loss'], 
                             train_loss['total_loss'], train_mean_iou, time_taken_formatted))
-                print('Validation Loss | [conf: {:.4f}, x: {:.4f}, y: {:.4f}, z: {:.4f}, l: {:.4f}, w: {:.4f}, h: {:.4f}, yaw: {:.4f}, iou: {:.4f}, class: {:.4f}, depth_appear: {:.4f}, depth_l2: {:.4f}, depth_smooth: {:.4f}, total: {:.4f}] | Mean IOU: {:.4f}'.format(
+                print('Validation Loss | [conf: {:.4f}, x: {:.4f}, y: {:.4f}, z: {:.4f}, l: {:.4f}, w: {:.4f}, h: {:.4f}, yaw: {:.4f}, iou: {:.4f}, class: {:.4f}, depth_unsup: {:.4f}, depth_l2: {:.4f}, depth_smooth: {:.4f}, total: {:.4f}] | Mean IOU: {:.4f}'.format(
                             val_loss['conf_loss'], val_loss['x_loss'], val_loss['y_loss'], val_loss['z_loss'], val_loss['l_loss'], val_loss['w_loss'], 
-                            val_loss['h_loss'], val_loss['yaw_loss'], val_loss['iou_loss'], val_loss['class_loss'], val_loss['depth_appearance_match_loss'], val_loss['depth_l2_loss'], val_loss['depth_smooth_loss'], 
+                            val_loss['h_loss'], val_loss['yaw_loss'], val_loss['iou_loss'], val_loss['class_loss'], val_loss['depth_unsupervised_loss'], val_loss['depth_l2_loss'], val_loss['depth_smooth_loss'], 
                             val_loss['total_loss'], np.mean(val_mean_iou_list)))
                 
                 # write to logfile
@@ -469,7 +476,7 @@ class Trainer(object):
                                      'train_iou_loss'              : train_loss['iou_loss'],           \
                                      'train_class_loss'            : train_loss['class_loss'],         \
                                      'train_depth_l2_loss'         : train_loss['depth_l2_loss'],      \
-                                     'train_appearance_match_loss' : train_loss['depth_appearance_match_loss'],  \
+                                     'train_appearance_match_loss' : train_loss['depth_unsupervised_loss'],  \
                                      'train_depth_smooth_loss'     : train_loss['depth_smooth_loss'],  \
                                      'train_total_loss'            : train_loss['total_loss'],         \
                                      'valid_conf_loss'             : val_loss['conf_loss'],            \
@@ -482,7 +489,7 @@ class Trainer(object):
                                      'valid_yaw_loss'              : val_loss['yaw_loss'],             \
                                      'valid_iou_loss'              : val_loss['iou_loss'],             \
                                      'valid_class_loss'            : val_loss['class_loss'],           \
-                                     'valid_appearance_match_loss' : val_loss['depth_appearance_match_loss'],    \
+                                     'valid_appearance_match_loss' : val_loss['depth_unsupervised_loss'],    \
                                      'valid_depth_l2_loss'         : val_loss['depth_l2_loss'],        \
                                      'valid_depth_smooth_loss'     : val_loss['depth_smooth_loss'],    \
                                      'valid_total_loss'            : val_loss['total_loss']             })
@@ -513,7 +520,7 @@ class Trainer(object):
             left_image = np.transpose(left_image, (-1, -3, -2))
 
         # normalize image
-        left_image = self.dataset.normalize_img(left_image)
+        left_image = normalize_img(left_image)
         left_image = np.expand_dims(left_image, 0).astype(np.float32)
         left_image = torch.from_numpy(np.asarray(left_image, dtype=np.float32)).to(device)
 
@@ -550,7 +557,7 @@ class Trainer(object):
             if self.dense_depth:
                 pose_pred, depth_pred = pred_tuple
                 depth_pred = depth_pred.cpu().numpy()
-                depth_pred = self.dataset.denormalize_depth(depth_pred)
+                depth_pred = denormalize_depth(depth_pred, self.xlim[1])
                 depth_pred = np.squeeze(depth_pred[0], 0)
             else:
                 pose_pred = pred_tuple

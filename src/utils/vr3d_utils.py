@@ -77,6 +77,7 @@ def idx_to_label(idx):
 
     return label_ret
 
+## Objects
 # normalize functions
 def normalize_l(l):
     return l / 10.0
@@ -92,6 +93,23 @@ def denormalize_w(w):
     return w * 5.0
 def denormalize_h(h):
     return h * 5.0
+
+## Image and Depth
+# normalize
+def normalize_img(img):
+    return (img / 255.0) - 0.5
+
+# denormalize
+def denormalize_img(img):
+    return (img + 0.5) * 255.0
+
+# normalize
+def normalize_depth(depth, max_depth):
+    return (depth * 2.0 / max_depth) - 1.0
+
+# denormalize
+def denormalize_depth(depth, max_depth):
+    return (depth + 1.0) * (max_depth / 2)
 
 # draw point-cloud
 def draw_point_cloud_topdown(input_points, canvasSize=1000, radius=1,
@@ -728,11 +746,16 @@ def project_pc2image(points, lidar2cam, K, resolution):
     # return image
     return projected_img
 
-def colorize_depth_map(depth_map, min_depth=0, max_depth=70, cmap="plasma"):
+def colorize_depth_map(depth_map, min_depth=0, max_depth=70, cmap="magma", mask_zeros=False):
 
     # normalize 
     min_depth = depth_map.min() if min_depth is None else min_depth 
     max_depth = depth_map.max() if max_depth is None else max_depth   
+
+    # apply mask
+    if mask_zeros:
+        mask = (depth_map > 0)
+
     if min_depth != max_depth:
         depth_map = (depth_map - min_depth) / (max_depth - min_depth)
     else:
@@ -742,9 +765,12 @@ def colorize_depth_map(depth_map, min_depth=0, max_depth=70, cmap="plasma"):
     depth_map = cmapper(depth_map, bytes=True) 
     img = depth_map[:,:,:3]
 
+    if mask_zeros:
+        img[mask] = (0, 0, 0)
+
     return img
 
-def reproject_lr_disparity(img_left, img_right, depth_pred, f, baseline):
+def reproject_lr_disparity(img_left, img_right, depth_pred, f, baseline, camera):
     h, w = img_left.shape[-2], img_left.shape[-1] # could be a batch or single image
 
     resize = transforms.Compose([
@@ -753,33 +779,47 @@ def reproject_lr_disparity(img_left, img_right, depth_pred, f, baseline):
     # convert to tensor if depth is stored as numpy array
     depth_pred = resize(depth_pred)
 
+    # huber norm
+    huber_norm = torch.nn.SmoothL1Loss(reduction='none', beta=1.0)
+
     # compute depth
-    disparity_l2r = f * baseline / (depth_pred + 1e-6)
+    disparity_1to2 = f * baseline / (depth_pred + 1e-6)
     
     # normalize disparity
-    disparity_l2r = disparity_l2r / w
+    disparity_1to2 = disparity_1to2 / w
+
+    img1 = img_left
+    img2 = img_right
+    # flip convention
+    if camera == 'right':
+        disparity_1to2 *= -1.0
+        # flip images
+        img1 = img_right
+        img2 = img_left
     
     # warp left image to generate right image
-    img_right_warped = apply_disparity(img_left, disparity_l2r)
+    img2_warped = apply_disparity(img1, disparity_1to2)
 
     # get warped mask
-    warping_mask_l2r = torch.ones_like(img_left)
-    warping_mask_l2r = apply_disparity(warping_mask_l2r, disparity_l2r)
+    warping_mask_1to2 = torch.ones_like(img1)
+    warping_mask_1to2 = apply_disparity(warping_mask_1to2, disparity_1to2)
     
     # compute left-to-right L1 loss
-    l2r_l1_err = warping_mask_l2r * torch.abs(img_right - img_right_warped)
+    # reproj_err_1to2 = warping_mask_1to2 * torch.abs(img2 - img2_warped)
+    reproj_err_1to2 = warping_mask_1to2 * huber_norm(img2, img2_warped)
 
     # warp right image to generate left image
-    img_left_warped = apply_disparity(img_right, -disparity_l2r)
+    img1_warped = apply_disparity(img2, -disparity_1to2)
 
     # get warped mask
-    warping_mask_r2l = torch.ones_like(img_left)
-    warping_mask_r2l = apply_disparity(warping_mask_r2l, -disparity_l2r)
+    warping_mask_2to1 = torch.ones_like(img1)
+    warping_mask_2to1 = apply_disparity(warping_mask_2to1, -disparity_1to2)
 
     # compute right-to-left L1 loss
-    r2l_l1_err = warping_mask_r2l * torch.abs(img_left - img_left_warped)
+    # reproj_err_2to1 = warping_mask_2to1 * torch.abs(img1 - img1_warped)
+    reproj_err_2to1 = warping_mask_2to1 * huber_norm(img1, img1_warped)
 
-    return depth_pred, disparity_l2r, img_right_warped, warping_mask_l2r, l2r_l1_err, img_left_warped, warping_mask_r2l, r2l_l1_err
+    return depth_pred, disparity_1to2, img2_warped, warping_mask_1to2, reproj_err_1to2, img1_warped, warping_mask_2to1, reproj_err_2to1
 
 def apply_disparity(img, disp):
     batch_size, _, height, width = img.shape
@@ -801,7 +841,7 @@ def apply_disparity(img, disp):
 
 def get_reprojection_vis(img_left, img_right, depth_pred, f, baseline):
     depth, disparity_l2r, img_right_warped, warping_mask_l2r, l2r_l1_err, img_left_warped, warping_mask_r2l, r2l_l1_err = \
-        reproject_lr_disparity(img_left, img_right, depth_pred, f, baseline)
+        reproject_lr_disparity(img_left, img_right, depth_pred, f, baseline, camera='left')
 
     # left image
     img_l = img_left.detach().cpu().numpy()
@@ -876,7 +916,7 @@ def get_reprojection_vis(img_left, img_right, depth_pred, f, baseline):
     r2l_l1_err = cv2.cvtColor(r2l_l1_err, cv2.COLOR_RGB2GRAY) 
 
     # text on the visualization image
-    r2l_l1_err = cv2.cvtColor(r2l_l1_err, cv2.COLOR_RGB2BGR) 
+    r2l_l1_err = cv2.cvtColor(r2l_l1_err, cv2.COLOR_GRAY2BGR) 
     cv2.rectangle(r2l_l1_err, (x_center-300,0), (x_center+300,60), color=(0,0,0), thickness=-1)
     cv2.putText(r2l_l1_err, 'right-to-left reproj error', 
         (x_center-200,40), 
@@ -909,7 +949,7 @@ def get_reprojection_vis(img_left, img_right, depth_pred, f, baseline):
     l2r_l1_err = cv2.cvtColor(l2r_l1_err, cv2.COLOR_RGB2GRAY) 
 
     # text on the visualization image
-    l2r_l1_err = cv2.cvtColor(l2r_l1_err, cv2.COLOR_RGB2BGR) 
+    l2r_l1_err = cv2.cvtColor(l2r_l1_err, cv2.COLOR_GRAY2BGR) 
     cv2.rectangle(l2r_l1_err, (x_center-300,0), (x_center+300,60), color=(0,0,0), thickness=-1)
     cv2.putText(l2r_l1_err, 'left-to-right reproj error', 
         (x_center-200,40), 
