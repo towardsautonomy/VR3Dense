@@ -18,12 +18,9 @@ pose_fields = ['conf','x','y','z','l','w','h','cos_yaw','sin_yaw']
 pose_vec_len = len(pose_fields)
 
 # pretrained weights
-pretrained_weights = [{'exp':'vr3d.learning_rate_0.0001.n_xgrids_16.n_ygrids_16.xlim_0.0_70.0.ylim_-40.0_40.0.zlim_-2.5_1.0.vol_size_512_512_32.exp_id_None',
-                      'url':'https://drive.google.com/file/d/1rDuFa00gP8-CNAXTYNjM8B9HX7k9Yjhu/view?usp=sharing',
-                      'file_id':'1rDuFa00gP8-CNAXTYNjM8B9HX7k9Yjhu'},
-                      {'exp':'vr3d.learning_rate_0.0001.n_xgrids_16.n_ygrids_16.xlim_0.0_50.0.ylim_-25.0_25.0.zlim_-2.5_1.0.vol_size_256_256_16.exp_id_None',
-                      'url':'https://drive.google.com/file/d/1mpYrfgXBrpkL-0FDzcF1RCMUJxLbVxGs/view?usp=sharing',
-                      'file_id':'1mpYrfgXBrpkL-0FDzcF1RCMUJxLbVxGs'}
+pretrained_weights = [{'exp':'vr3d.learning_rate_0.0001.n_xgrids_16.n_ygrids_16.xlim_0.0_70.0.ylim_-25.0_25.0.zlim_-2.5_1.0.max_depth_100.0.vol_size_256x256x16.img_size_512x256.dense_depth_True.exp_id_kitti',
+                      'url':'https://drive.google.com/file/d/1KcffihXYu0bW3NC4I0LvzTkzE1GP6Xpz/view?usp=sharing',
+                      'file_id':'1KcffihXYu0bW3NC4I0LvzTkzE1GP6Xpz'}
                      ]
 
 # load pretrained weights
@@ -746,15 +743,18 @@ def project_pc2image(points, lidar2cam, K, resolution):
     # return image
     return projected_img
 
-def colorize_depth_map(depth_map, min_depth=0, max_depth=70, cmap="magma", mask_zeros=False):
+def colorize_depth_map(depth_map, min_depth=0, max_depth=100, cmap="magma", mask_zeros=False):
 
     # normalize 
     min_depth = depth_map.min() if min_depth is None else min_depth 
-    max_depth = depth_map.max() if max_depth is None else max_depth   
-
+    max_depth = depth_map.max() if max_depth is None else max_depth  
+    
+    # invert the scale for better colormap visualization 
+    depth_map = max_depth - depth_map
+    
     # apply mask
     if mask_zeros:
-        mask = (depth_map > 0)
+        mask = (depth_map == 0)
 
     if min_depth != max_depth:
         depth_map = (depth_map - min_depth) / (max_depth - min_depth)

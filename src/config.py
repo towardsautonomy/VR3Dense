@@ -44,13 +44,15 @@ def parse_args():
                         help='minimum value of z to be considered for object detection')
     parser.add_argument('--zmax', type=float, default=1.0,
                         help='maximum value of z to be considered for object detection')
+    parser.add_argument('--max_depth', type=float, default=100.0,
+                        help='maximum depth value for depth prediction')
     parser.add_argument('--vol_size_x', type=int, default=256,
                         help='volume size for voxelizing point-cloud in x direction')
     parser.add_argument('--vol_size_y', type=int, default=256,
                         help='volume size for voxelizing point-cloud in y direction')
     parser.add_argument('--vol_size_z', type=int, default=16,
                         help='volume size for voxelizing point-cloud in z direction')
-    parser.add_argument('--img_size_x', type=int, default=256,
+    parser.add_argument('--img_size_x', type=int, default=512,
                         help='image size to be resized in x direction')
     parser.add_argument('--img_size_y', type=int, default=256,
                         help='image size to be resized in y direction')

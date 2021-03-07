@@ -317,11 +317,15 @@ def generalized_box_iou(poses1: torch.Tensor, poses2: torch.Tensor) -> torch.Ten
     return iou - (areai - union) / (areai + 1e-6)
 
 class DepthL2Loss(nn.Module):
-    def __init__(self, lambda_weight=1.0):
+    def __init__(self, lambda_weight=0.2, decay_rate=0.01):
         super(DepthL2Loss, self).__init__()
         self.lambda_weight = lambda_weight
+        self.decay_rate = decay_rate
 
     def forward(self, lidar_cam_projection, depth_pred, depth_mask):
+        # decay the weight
+        self.lambda_weight = self.lambda_weight - (self.lambda_weight * self.decay_rate)
+        
         # create depth mask
         n_true_pts = torch.sum(depth_mask)
 
@@ -334,25 +338,63 @@ class DepthSmoothnessLoss(nn.Module):
     def __init__(self, lambda_weight=1.0):
         super(DepthSmoothnessLoss, self).__init__()
         self.lambda_weight = lambda_weight
+        self.grad_alpha = 0.5
+        self.edge_preserverance_loss = DepthEdgePreserveranceLoss()
+        # grayscale transformation
+        self.to_grayscale = transforms.Compose([
+                            transforms.Grayscale(num_output_channels=1)
+                        ])
 
     def forward(self, img, depth_pred):
-        return self.lambda_weight * depth_aware_smooth_loss(img, depth_pred)
+        img_gray = self.to_grayscale(img)
 
-def depth_aware_smooth_loss(img, depth_pred):
-    to_grayscale = transforms.Compose([
-                        transforms.Grayscale(num_output_channels=1)
-                    ])
-    img_gray = to_grayscale(img)
+        img_x_grad = img_gray[:,:,:,:-1] - img_gray[:,:,:,1:]
+        img_y_grad = img_gray[:,:,:-1,:] - img_gray[:,:,1:,:]
 
-    img_x_grad = img_gray[:,:,:,:-1] - img_gray[:,:,:,1:]
-    img_y_grad = img_gray[:,:,:-1,:] - img_gray[:,:,1:,:]
+        depth_x_grad = depth_pred[:,:,:,:-1] - depth_pred[:,:,:,1:]
+        depth_y_grad = depth_pred[:,:,:-1,:] - depth_pred[:,:,1:,:]
 
-    depth_x_grad = depth_pred[:,:,:,:-1] - depth_pred[:,:,:,1:]
-    depth_y_grad = depth_pred[:,:,:-1,:] - depth_pred[:,:,1:,:]
+        # penalize sharper edges if a corresponding edge unavailable in input image
+        edge_aware_smooth_loss_ = torch.mean(torch.abs(depth_x_grad) * torch.exp(-torch.abs(img_x_grad))) + torch.mean(torch.abs(depth_y_grad) * torch.exp(-torch.abs(img_y_grad)))
+        
+        # preserve edges
+        edge_preserverance_loss_ = self.edge_preserverance_loss(img, depth_pred)
 
-    edge_aware_smooth_loss_ = torch.mean(torch.abs(depth_x_grad) * torch.exp(-torch.abs(img_x_grad))) + torch.mean(torch.abs(depth_y_grad) * torch.exp(-torch.abs(img_y_grad)))
+        return self.lambda_weight * ((self.grad_alpha * edge_preserverance_loss_) + ((1. - self.grad_alpha) * edge_aware_smooth_loss_))
 
-    return edge_aware_smooth_loss_
+class DepthEdgePreserveranceLoss(nn.Module):
+    def __init__(self, lambda_weight=1.0, device='cuda'):
+        super(DepthEdgePreserveranceLoss, self).__init__()
+        self.lambda_weight = lambda_weight
+        self.alpha = torch.Tensor([1., 1.])
+        # self.W = nn.Parameter(torch.Tensor([0.99769384, 0.99669755]))
+        # self.b = nn.Parameter(torch.Tensor([ 0.00058065, -0.00093009]))
+        
+        self.W = torch.Tensor([0.99769384, 0.99669755])
+        self.b = torch.Tensor([0.00058065, -0.00093009])
+        
+        # grayscale transformation
+        self.to_grayscale = transforms.Compose([
+                            transforms.Grayscale(num_output_channels=1)
+                        ])
+
+    def forward(self, img, depth_pred):
+        img_gray = self.to_grayscale(img)
+
+        img_x_grad = img_gray[:,:,:,:-1] - img_gray[:,:,:,1:]
+        img_y_grad = img_gray[:,:,:-1,:] - img_gray[:,:,1:,:]
+
+        depth_x_grad = depth_pred[:,:,:,:-1] - depth_pred[:,:,:,1:]
+        depth_y_grad = depth_pred[:,:,:-1,:] - depth_pred[:,:,1:,:]
+
+        # learn alpha
+        self.alpha[0] = F.tanh(torch.mean(img_x_grad * self.W[0] + self.b[0]))
+        self.alpha[1] = F.tanh(torch.mean(img_y_grad * self.W[1] + self.b[1]))
+        
+        # enforce similar edge between image and depth
+        edge_preserverance_loss = (torch.mean(torch.exp(torch.abs(depth_x_grad - self.alpha[0]*img_x_grad))) + torch.mean(torch.exp(torch.abs(depth_y_grad - self.alpha[1]*img_y_grad))) / 2.0) - 1.0
+
+        return self.lambda_weight * edge_preserverance_loss
 
 class DepthUnsupervisedLoss(nn.Module):
     '''
@@ -361,7 +403,7 @@ class DepthUnsupervisedLoss(nn.Module):
     def __init__(self, lambda_weight=1.0):
         super(DepthUnsupervisedLoss, self).__init__()
         self.lambda_weight = lambda_weight
-        self.alpha = 0.1
+        self.alpha = 0.85
         # huber norm
         self.huber_norm = torch.nn.SmoothL1Loss(reduction='mean', beta=1.0)
 
@@ -389,7 +431,7 @@ class DepthUnsupervisedLoss(nn.Module):
         # appearance matching loss
         appearance_match_loss = (self.alpha * (1. - ssim_loss) / 2.0) + ((1. - self.alpha) * recon_repr_loss)
 
-        # left-right consistency loss
+        # left-right disparity consistency loss
         lr_consistency_loss = self.huber_norm(disparity_l2r, -disparity_r2l)
         
         return self.lambda_weight * (appearance_match_loss + lr_consistency_loss)

@@ -3,7 +3,7 @@ import numpy as np
 import glob
 import os
 
-demo_path = 'tmp/demo'
+demo_path = 'tmp/vr3dense_demo_scene104'
 demo_frames_path = os.path.join(demo_path, '*.png')
 out_vid = os.path.join(demo_path, 'demo.mov')
 img_array = []

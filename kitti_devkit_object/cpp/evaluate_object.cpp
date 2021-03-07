@@ -32,8 +32,7 @@ STATIC EVALUATION PARAMETERS
 
 // holds the number of test images on the server
 // const int32_t N_TESTIMAGES = 7518;
-// const int32_t N_TESTIMAGES = 3769;
-const int32_t N_TESTIMAGES = 7480;
+const int32_t N_TESTIMAGES = 3769;
 
 // easy, moderate and hard evaluation level
 enum DIFFICULTY{EASY=0, MODERATE=1, HARD=2};
@@ -920,7 +919,7 @@ int32_t main (int32_t argc,char *argv[]) {
     mail->msg("Your evaluation results are available at:");
     mail->msg("http://www.cvlibs.net/datasets/kitti/user_submit_check_login.php?benchmark=object&user=%s&result=%s",argv[2], result_sha.c_str());
   } else {
-    system(("rm -r results/" + result_sha).c_str());
+    // system(("rm -r results/" + result_sha).c_str());
     mail->msg("An error occured while processing your results.");
     mail->msg("Please make sure that the data in your zip archive has the right format!");
   }

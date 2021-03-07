@@ -37,9 +37,9 @@ if __name__ == "__main__":
     exp_id = 'None'
     if args.exp_id != '':
         exp_id = args.exp_id
-    exp_str = 'vr3d.learning_rate_{}.n_xgrids_{}.n_ygrids_{}.xlim_{}_{}.ylim_{}_{}.zlim_{}_{}.vol_size_{}x{}x{}.img_size_{}x{}.dense_depth_{}.exp_id_{}'.format(
+    exp_str = 'vr3d.learning_rate_{}.n_xgrids_{}.n_ygrids_{}.xlim_{}_{}.ylim_{}_{}.zlim_{}_{}.max_depth_{}.vol_size_{}x{}x{}.img_size_{}x{}.dense_depth_{}.exp_id_{}'.format(
                     args.learning_rate, args.n_xgrids, args.n_ygrids, args.xmin, args.xmax, args.ymin, args.ymax, \
-                    args.zmin, args.zmax, args.vol_size_x, args.vol_size_y, args.vol_size_z, args.img_size_x, \
+                    args.zmin, args.zmax, args.max_depth, args.vol_size_x, args.vol_size_y, args.vol_size_z, args.img_size_x, \
                     args.img_size_y, args.dense_depth, exp_id)
     model_exp_dir = os.path.join(args.modeldir, exp_str)
     # make directories
@@ -84,10 +84,11 @@ if __name__ == "__main__":
                       n_xgrids=args.n_xgrids, n_ygrids=args.n_ygrids, exp_str=exp_str, \
                       epochs=args.epochs, batch_size=args.batch_size, learning_rate=args.learning_rate, \
                       xmin=args.xmin, xmax=args.xmax, ymin=args.ymin, ymax=args.ymax, zmin=args.zmin, zmax=args.zmax, \
-                      vol_size_x=args.vol_size_x, vol_size_y=args.vol_size_y, vol_size_z=args.vol_size_z, \
+                      max_depth=args.max_depth, vol_size_x=args.vol_size_x, vol_size_y=args.vol_size_y, vol_size_z=args.vol_size_z, \
                       img_size_x=args.img_size_x, img_size_y=args.img_size_y, \
                       modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
-                      model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps)
+                      model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps, \
+                      train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only)
 
     # train the model
     trainer.train()

@@ -1,5 +1,10 @@
 # VR3Dense: 3D Object Detection and Dense Depth Reconstruction from Voxel-Representation
 
+VR3Dense jointly trains for 3D object detection as well as semi-supervised dense depth reconstruction. Object detection uses 3D convolutions over voxelized point-cloud to obtain 3D bounding-boxes, while dense depth reconstruction network uses an *hourglass* architecture with skip connections. The complete pipeline has been trained on KITTI object training dataset with 90% train and 10% validation split. VR3Dense supports detection and classification of the following classes: ```Car, Cyclist, Pedestrian```. VR3Dense runs at about **139.89fps** on a PC with i9 10850K processor with single NVIDIA RTX 3090 GPU.  
+
+![](media/demo.gif)  
+*Figure 1 - VR3Dense tested on KITTI raw dataset | Date:2011-09-26 | Sequence: 104*  
+
 ## Dependencies 
 
 This project has been tested with `PyTorch=1.7.1` and `cuda-11.0`.  
@@ -8,19 +13,67 @@ This project has been tested with `PyTorch=1.7.1` and `cuda-11.0`.
 
 Install conda environment as: ```conda env create -f conda_env.yml```.  
 
-## Training and Testing VR3Dense  
+## Training, Testing, and Evaluation of VR3Dense  
 
-The network can be trained as: ```./run_experiments train```.  
-The network can be test as: ```./run_experiments test```.  
+### Training on KITTI Object Dataset
 
-## Multi-Object Tracking  
+Please download *left*, *right*, *velodyne* data, and *labels* from here: http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d and extract them. 
+The network can be trained as: 
+```
+python train.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object \
+                    --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti \
+                    --dense_depth
+```
 
-Multi-object tracking can be selectively turned on or off. This repo uses **[AB3DMOT](https://github.com/xinshuoweng/AB3DMOT)** for tracking.
+Or alternatively, you can run the provided bash script as: ```./run_experiments train```.  
 
-## Results  
+### Testing the pre-trained model on KITTI dataset
 
+You need a set of *left image* files and the corresponding *velodyne point-cloud* files during testing. You can download KITTI raw, or object dataset for testing. Set up the paths correctly in *test.py* and then run:
 
-## KITTI Evaluation  
+```
+python test.py --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti --dense_depth
+```
+
+This will download the pre-trained model if you do not have it locally and then run inference on it. You can choose to use a multi-object tracker by modifying the *TRACKING* parameter within *test.py*. This work uses **[AB3DMOT](https://github.com/xinshuoweng/AB3DMOT)** for multi-object tracking.
+
+The network can also be test by simply running: ```./run_experiments test```.  
+
+### Evaluation of the model on KITTI dataset
+
+For evaluation of the model, you need a set of *left image* files and the corresponding *velodyne point-cloud* files. Set up the paths correctly in *src/eval_kitti.py* and then run: 
+
+```
+python src/eval_kitti.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object \
+                         --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti --dense_depth
+```
+
+This will generate a set of *.txt* files for object detection, and compute *depth prediction* metrics for each file - which will be summarized at the end. Once you have obtained a set of *.txt* files, you can either use the *kitti object evaluation kit* to compute performance, or alternatively *zip* them and submit to KITTI evaluation server. Please follow [this](#kitti-evaluation) section for KITTI evaluation locally.
+
+## Quantitative Results  
+
+### 3D Object Detection
+
+3D object detection results on KITTI Object dataset (*eval* split) is summarized in the table below:
+
+```
+Easy    Mod.    Hard
+1.01    1.70    1.73
+```
+
+### Dense Depth Reconstruction
+
+Dense Depth Map prediction is evaluated based on the pixels for which we have lidar point projection available. Quantitative results on KITTI object *testing* dataset (7518 images) are given below:  
+
+```
+| ========================================================================== |
+| abs_rel  | sq_rel   | rmse     | rmse_log | a1       | a2       | a3       |
+| ========================================================================== |
+| 0.282412 | 7.848874 | 9.129279 | 0.363975 | 0.756529 | 0.877216 | 0.931778 |
+| ========================================================================== |
+```
+
+## KITTI Evaluation
 
 To write predicted labels to files in the KITTI format: ```./run_experiments evaluate```
 
@@ -35,7 +88,7 @@ gnuplot (sudo apt-get install gnuplot)
 
 Install the prerequisites and follow the steps below to perform evaluations.
 
- - Open the file ```kitti_devkit_object/cpp/evaluate_object.cpp``` and update the number of validation samples by modifying the line ```const int32_t N_TESTIMAGES = 1000;```.   
+ - Open the file ```kitti_devkit_object/cpp/evaluate_object.cpp``` and update the number of validation samples by modifying the line ```const int32_t N_TESTIMAGES = 7518;```.   
  - Build binary.  
 
    ```
@@ -67,7 +120,7 @@ Install the prerequisites and follow the steps below to perform evaluations.
  - Run the evaluation kit with this experiment ID.  
 
  ```
-  ./evaluate_obj exp
+  ./evaluate_object exp
  ```
 
  - This performs the evaluation and generates report with plots. 

@@ -187,6 +187,73 @@ class LidarObjectDetection_FC(nn.Module):
         out = torch.cat((conf_out, pose_out, class_out), dim=-1).contiguous().view(-1,self.n_xgrids*self.n_ygrids*self.obj_label_len)
         return out
 
+# class EncoderBlock(nn.Module):
+
+#     def __init__(self, in_channels, out_channels, kernel_size=3, stride=2, padding=1, normalization=True, norm_type='instance_norm'):
+
+#         super(EncoderBlock, self).__init__() 
+
+#         self.convA = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, 
+#                             kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+#         self.convB = nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, stride=1, padding=1)
+#         self.leakyrelu = nn.LeakyReLU(0.2)
+#         self.instance_norm = nn.InstanceNorm2d(out_channels)
+#         self.batch_norm = nn.BatchNorm2d(out_channels)
+
+#         self.normalization = normalization
+#         self.norm_type = norm_type
+    
+#     def forward(self, x):
+
+#         x = self.convA(x)
+#         x = self.leakyrelu(x)
+#         x = self.convB(x)
+#         x = self.leakyrelu(x)
+#         if self.normalization == True and self.norm_type == 'instance_norm':
+#             x = self.instance_norm(x)
+#         elif self.normalization == True and self.norm_type == 'batch_norm':
+#             x = self.batch_norm(x)
+        
+#         return x
+
+# class DecoderBlock(nn.Module):
+
+#     def __init__(self, in_channels, out_channels, normalization=True, norm_type='instance_norm'):
+
+#         super(DecoderBlock, self).__init__() 
+
+#         self.in_channels = in_channels
+#         self.out_channels = out_channels
+
+#         self.convA = nn.Conv2d(in_channels, out_channels, 3, 1, 1)
+#         self.leakyrelu = nn.LeakyReLU(0.2)
+#         self.convB = nn.Conv2d(out_channels, out_channels, 3, 1, 1)
+#         self.instance_norm = nn.InstanceNorm2d(out_channels)
+#         self.batch_norm = nn.BatchNorm2d(out_channels)
+
+#         self.normalization = normalization
+#         self.norm_type = norm_type
+
+#     def forward(self, x, concat_with=None):
+#         upsampled_x = x
+#         if concat_with is not None:
+#             concat_h_dim = concat_with.shape[2]
+#             concat_w_dim = concat_with.shape[3]
+
+#             upsampled_x = F.interpolate(x, size=[concat_h_dim, concat_w_dim], mode="bilinear", align_corners=True)
+#             upsampled_x = torch.cat([upsampled_x, concat_with], dim=1)
+        
+#         upsampled_x = self.convA(upsampled_x)
+#         upsampled_x = self.leakyrelu(upsampled_x)
+#         upsampled_x = self.convB(upsampled_x)
+#         upsampled_x = self.leakyrelu(upsampled_x)
+#         if self.normalization == True and self.norm_type == 'instance_norm':
+#             upsampled_x = self.instance_norm(upsampled_x)
+#         elif self.normalization == True and self.norm_type == 'batch_norm':
+#             upsampled_x = self.batch_norm(upsampled_x)
+
+#         return upsampled_x
+
 class EncoderBlock(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=2, padding=1, normalization=True, norm_type='instance_norm'):
@@ -197,6 +264,7 @@ class EncoderBlock(nn.Module):
                             kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
         self.convB = nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, stride=1, padding=1)
         self.leakyrelu = nn.LeakyReLU(0.2)
+        self.convC = nn.Conv2d(out_channels * 2, out_channels, kernel_size=kernel_size, stride=1, padding=1)
         self.instance_norm = nn.InstanceNorm2d(out_channels)
         self.batch_norm = nn.BatchNorm2d(out_channels)
 
@@ -205,9 +273,12 @@ class EncoderBlock(nn.Module):
     
     def forward(self, x):
 
-        x = self.convA(x)
-        x = self.leakyrelu(x)
-        x = self.convB(x)
+        x1 = self.convA(x)
+        x1 = self.leakyrelu(x1)
+        x2 = self.convB(x1)
+        x2 = self.leakyrelu(x2)
+        x = torch.cat((x1, x2), 1)
+        x = self.convC(x)
         x = self.leakyrelu(x)
         if self.normalization == True and self.norm_type == 'instance_norm':
             x = self.instance_norm(x)
@@ -216,18 +287,24 @@ class EncoderBlock(nn.Module):
         
         return x
 
-class Upsample(nn.Module):
+class DecoderBlock(nn.Module):
 
-    def __init__(self, input_channels, output_channels):
+    def __init__(self, in_channels, out_channels, normalization=True, norm_type='instance_norm'):
 
-        super(Upsample, self).__init__() 
+        super(DecoderBlock, self).__init__() 
 
-        self.input_channels = input_channels
-        self.output_channels = output_channels
+        self.in_channels = in_channels
+        self.out_channels = out_channels
 
-        self.convA = nn.Conv2d(input_channels, output_channels, 3, 1, 1)
+        self.convA = nn.Conv2d(in_channels, out_channels, 3, 1, 1)
         self.leakyrelu = nn.LeakyReLU(0.2)
-        self.convB = nn.Conv2d(output_channels, output_channels, 3, 1, 1)
+        self.convB = nn.Conv2d(out_channels, out_channels, 3, 1, 1)
+        self.convC = nn.Conv2d(out_channels * 2, out_channels, 3, 1, 1)
+        self.instance_norm = nn.InstanceNorm2d(out_channels)
+        self.batch_norm = nn.BatchNorm2d(out_channels)
+
+        self.normalization = normalization
+        self.norm_type = norm_type
 
     def forward(self, x, concat_with=None):
         upsampled_x = x
@@ -238,10 +315,17 @@ class Upsample(nn.Module):
             upsampled_x = F.interpolate(x, size=[concat_h_dim, concat_w_dim], mode="bilinear", align_corners=True)
             upsampled_x = torch.cat([upsampled_x, concat_with], dim=1)
         
-        upsampled_x = self.convA(upsampled_x)
+        upsampled_x1 = self.convA(upsampled_x)
+        upsampled_x1 = self.leakyrelu(upsampled_x1)
+        upsampled_x2 = self.convB(upsampled_x1)
+        upsampled_x2 = self.leakyrelu(upsampled_x2)
+        upsampled_x = torch.cat((upsampled_x1, upsampled_x2), 1)
+        upsampled_x = self.convC(upsampled_x)
         upsampled_x = self.leakyrelu(upsampled_x)
-        upsampled_x = self.convB(upsampled_x)
-        upsampled_x = self.leakyrelu(upsampled_x)
+        if self.normalization == True and self.norm_type == 'instance_norm':
+            x = self.instance_norm(x)
+        elif self.normalization == True and self.norm_type == 'batch_norm':
+            x = self.batch_norm(x)
 
         return upsampled_x
 
@@ -256,7 +340,8 @@ class DepthEncoder(nn.Module):
         self.downsample2 = EncoderBlock(in_channels=16, out_channels=32)
         self.downsample3 = EncoderBlock(in_channels=32, out_channels=64)
         self.downsample4 = EncoderBlock(in_channels=64, out_channels=128)
-        self.downsample5 = EncoderBlock(in_channels=128, out_channels=128)
+        self.downsample5 = EncoderBlock(in_channels=128, out_channels=256)
+        self.downsample6 = EncoderBlock(in_channels=256, out_channels=512)
         
         self.flatten = nn.Flatten()
 
@@ -267,26 +352,30 @@ class DepthEncoder(nn.Module):
         x3 = self.downsample3(x2)
         x4 = self.downsample4(x3)
         x5 = self.downsample5(x4)
-        x5 = self.flatten(x5)
+        x6 = self.downsample6(x5)
+        x6 = self.flatten(x6)
 
-        return x0, x1, x2, x3, x4, x5
+        return x0, x1, x2, x3, x4, x5, x6
 
 class DepthDecoder(nn.Module):
 
-    def __init__(self, depth_latent_vector_len, combined_latent_vector_len, in_channels=128, out_channels=1):
+    def __init__(self, depth_latent_vector_len, combined_latent_vector_len, in_channels=256, out_channels=1):
 
         super(DepthDecoder, self).__init__()
+
+        self.in_channels = in_channels
 
         self.fc0 = nn.Linear(combined_latent_vector_len, depth_latent_vector_len)
         self.conv0 = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
 
-        self.upsample1 = Upsample(in_channels + in_channels, in_channels)
-        self.upsample2 = Upsample((in_channels) + (in_channels // 2), (in_channels // 2))
-        self.upsample3 = Upsample((in_channels // 2) + (in_channels // 4), (in_channels // 4))
-        self.upsample4 = Upsample((in_channels // 4) + (in_channels // 8), (in_channels // 8))
-        self.upsample5 = Upsample((in_channels // 8) + (in_channels // 16), (in_channels // 16))
+        self.upsample1 = DecoderBlock(in_channels + in_channels // 2, in_channels // 2)
+        self.upsample2 = DecoderBlock((in_channels // 2) + (in_channels // 4), (in_channels // 4))
+        self.upsample3 = DecoderBlock((in_channels // 4) + (in_channels // 8), (in_channels // 8))
+        self.upsample4 = DecoderBlock((in_channels // 8) + (in_channels // 16), (in_channels // 16))
+        self.upsample5 = DecoderBlock((in_channels // 16) + (in_channels // 32), (in_channels // 32))
+        self.upsample6 = DecoderBlock((in_channels // 32) + (in_channels // 64), (in_channels // 64), normalization=False)
 
-        self.conv_final = nn.Conv2d(in_channels // 16, out_channels, 3, 1, 1)
+        self.conv_final = nn.Conv2d(in_channels // 64, out_channels, 3, 1, 1)
         self.tanh = nn.Tanh()
 
     def forward(self, features):
@@ -296,18 +385,20 @@ class DepthDecoder(nn.Module):
         x_block2 = features[2]
         x_block3 = features[3]
         x_block4 = features[4]
-        latent_vector = features[5]
+        x_block5 = features[5]
+        latent_vector = features[6]
 
-        x_block5 = self.fc0(latent_vector)
-        x0 = x_block5.view((-1, x_block4.shape[1], x_block4.shape[2]//2, x_block4.shape[3]//2))
+        x_block6 = self.fc0(latent_vector)
+        x0 = x_block6.view((-1, self.in_channels, x_block5.shape[2]//2, x_block5.shape[3]//2))
         x0 = self.conv0(x0)
-        x1 = self.upsample1(x0, x_block4)
-        x2 = self.upsample2(x1, x_block3)
-        x3 = self.upsample3(x2, x_block2)
-        x4 = self.upsample4(x3, x_block1)
-        x5 = self.upsample5(x4, x_block0)
+        x1 = self.upsample1(x0, x_block5)
+        x2 = self.upsample2(x1, x_block4)
+        x3 = self.upsample3(x2, x_block3)
+        x4 = self.upsample4(x3, x_block2)
+        x5 = self.upsample5(x4, x_block1)
+        x6 = self.upsample6(x5, x_block0)
 
-        return self.tanh(self.conv_final(x5))
+        return self.tanh(self.conv_final(x6))
 
 class DenseDepth(nn.Module):
 
@@ -318,46 +409,9 @@ class DenseDepth(nn.Module):
         self.decoder = DepthDecoder()
     
     def forward(self, x):
-        x0, x1, x2, x3, x4, x5 = self.encoder(x)
-        depth_pred = self.decoder((x0, x1, x2, x3, x4, x5))
-        return x5, depth_pred
-
-# class VR3Dense(nn.Module):
-
-#     def __init__(self, in_channels, n_xgrids, n_ygrids, obj_label_len, base_filters=8, n_blocks=6, dense_depth=True):
-#         super(VR3Dense, self).__init__()
-
-#         self.dense_depth = dense_depth
-#         self.depth_latent_vector_len = 0
-#         self.latent_vector_len = (n_xgrids*n_ygrids*obj_label_len)
-        
-#         if dense_depth:
-#             self.depth_latent_vector_len = 8192
-#             self.latent_vector_len += self.depth_latent_vector_len
-#             self.depth_encoder = DepthEncoder()
-#             self.depth_decoder = DepthDecoder(self.depth_latent_vector_len, self.latent_vector_len)
-
-#         self.lidar_object_detection_cnn = LidarObjectDetection_CNN(in_channels, obj_label_len, base_filters, n_blocks, self.depth_latent_vector_len)
-#         fc_in_dim = 16*16*obj_label_len+self.depth_latent_vector_len
-#         self.lidar_object_detection_fc = LidarObjectDetection_FC(n_xgrids, n_ygrids, fc_in_dim, obj_label_len)
-    
-#     def forward(self, x_lidar, x_camera):
-#         latent_vector = self.lidar_object_detection_cnn(x_lidar)
-#         depth_pred = None
-
-#         if self.dense_depth:
-#             x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
-#             depth_latent_vector = x5
-#             latent_vector = torch.cat([latent_vector, depth_latent_vector], dim=1)
-#             depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, latent_vector))
-
-#         object_pose_pred = self.lidar_object_detection_fc(latent_vector)
-
-#         if self.dense_depth:
-#             return_tuple = (object_pose_pred, depth_pred)
-#         else:
-#             return_tuple = object_pose_pred
-#         return return_tuple
+        x0, x1, x2, x3, x4, x5, x6 = self.encoder(x)
+        depth_pred = self.decoder((x0, x1, x2, x3, x4, x5, x6))
+        return x6, depth_pred
 
 class VR3Dense(nn.Module):
 
@@ -372,14 +426,17 @@ class VR3Dense(nn.Module):
         if (train_depth_only == True) and (train_obj_only == True):
             raise Exception('Only one of \'train_depth_only\', \'train_obj_only\' can be set to true at a time.')
         
+        self.lidar_obj_fc_in_dim = 16*16*obj_label_len
         if dense_depth:
-            self.depth_latent_vector_len = 8192
+            in_dim = (512, 256)
+            n_downsampling_blocks = 6
+            last_block_n_channels = 512
+            self.depth_latent_vector_len = (in_dim[0] // (2**n_downsampling_blocks)) * (in_dim[1] // (2**n_downsampling_blocks)) * last_block_n_channels
             self.depth_encoder = DepthEncoder()
-            self.depth_decoder = DepthDecoder(self.depth_latent_vector_len, self.depth_latent_vector_len)
+            self.depth_decoder = DepthDecoder(self.depth_latent_vector_len, self.depth_latent_vector_len+self.lidar_obj_fc_in_dim, last_block_n_channels)
 
         self.lidar_object_detection_cnn = LidarObjectDetection_CNN(in_channels, obj_label_len, base_filters, n_blocks, 0)
-        fc_in_dim = 16*16*obj_label_len
-        self.lidar_object_detection_fc = LidarObjectDetection_FC(n_xgrids, n_ygrids, fc_in_dim, obj_label_len)
+        self.lidar_object_detection_fc = LidarObjectDetection_FC(n_xgrids, n_ygrids, self.lidar_obj_fc_in_dim, obj_label_len)
     
     def forward(self, x_lidar, x_camera):
         if self.train_depth_only:
@@ -392,13 +449,15 @@ class VR3Dense(nn.Module):
         if self.dense_depth:
             if self.train_obj_only:
                 with torch.no_grad():
-                    x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
-                    depth_latent_vector = x5
-                    depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
+                    x0, x1, x2, x3, x4, x5, x6 = self.depth_encoder(x_camera)
+                    depth_latent_vector = x6
+                    depth_latent_vector = torch.cat([latent_vector.detach(), depth_latent_vector], dim=1)
+                    depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, x5, depth_latent_vector))
             else:
-                x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
-                depth_latent_vector = x5
-                depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
+                x0, x1, x2, x3, x4, x5, x6 = self.depth_encoder(x_camera)
+                depth_latent_vector = x6
+                depth_latent_vector = torch.cat([latent_vector.detach(), depth_latent_vector], dim=1)
+                depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, x5, depth_latent_vector))
 
         if self.train_depth_only:
             with torch.no_grad():
@@ -411,3 +470,59 @@ class VR3Dense(nn.Module):
         else:
             return_tuple = object_pose_pred
         return return_tuple
+
+# class VR3Dense(nn.Module):
+
+#     def __init__(self, in_channels, n_xgrids, n_ygrids, obj_label_len, base_filters=8, n_blocks=6, dense_depth=True, train_depth_only=False, train_obj_only=False):
+#         super(VR3Dense, self).__init__()
+
+#         self.dense_depth = dense_depth
+#         self.depth_latent_vector_len = 0
+#         self.latent_vector_len = (n_xgrids*n_ygrids*obj_label_len)
+#         self.train_depth_only = train_depth_only
+#         self.train_obj_only = train_obj_only
+#         if (train_depth_only == True) and (train_obj_only == True):
+#             raise Exception('Only one of \'train_depth_only\', \'train_obj_only\' can be set to true at a time.')
+        
+#         self.lidar_obj_fc_in_dim = 16*16*obj_label_len
+#         if dense_depth:
+#             in_dim = 256
+#             n_downsampling_blocks = 5
+#             last_block_n_channels = 256
+#             self.depth_latent_vector_len = (in_dim // (2**n_downsampling_blocks)) * (in_dim // (2**n_downsampling_blocks)) * last_block_n_channels
+#             self.depth_encoder = DepthEncoder()
+#             self.depth_decoder = DepthDecoder(self.depth_latent_vector_len, self.depth_latent_vector_len, last_block_n_channels)
+
+#         self.lidar_object_detection_cnn = LidarObjectDetection_CNN(in_channels, obj_label_len, base_filters, n_blocks, 0)
+#         self.lidar_object_detection_fc = LidarObjectDetection_FC(n_xgrids, n_ygrids, self.lidar_obj_fc_in_dim, obj_label_len)
+    
+#     def forward(self, x_lidar, x_camera):
+#         if self.train_depth_only:
+#             with torch.no_grad():
+#                 latent_vector = self.lidar_object_detection_cnn(x_lidar)
+#         else:
+#             latent_vector = self.lidar_object_detection_cnn(x_lidar)
+#         depth_pred = None
+
+#         if self.dense_depth:
+#             if self.train_obj_only:
+#                 with torch.no_grad():
+#                     x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
+#                     depth_latent_vector = x5
+#                     depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
+#             else:
+#                 x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
+#                 depth_latent_vector = x5
+#                 depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
+
+#         if self.train_depth_only:
+#             with torch.no_grad():
+#                 object_pose_pred = self.lidar_object_detection_fc(latent_vector)
+#         else:
+#             object_pose_pred = self.lidar_object_detection_fc(latent_vector)
+
+#         if self.dense_depth:
+#             return_tuple = (object_pose_pred, depth_pred)
+#         else:
+#             return_tuple = object_pose_pred
+#         return return_tuple

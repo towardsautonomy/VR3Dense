@@ -74,6 +74,7 @@ class KITTIObjectDataset(Dataset):
         # configs needed for stereo
         self.fx = self.K[0,0]
         self.baseline = 0.54 # meters
+        self.max_depth = 200.0
 
         # image resolution
         self.img_resolution = (1242, 375)
@@ -203,7 +204,7 @@ class KITTIObjectDataset(Dataset):
         # project points onto camera image plane
         projected_img = project_pc2image(velo_pc, self.T_lidar2cam, self.K, (left_img.shape[2], left_img.shape[1]))
         projected_img = cv2.resize(projected_img, self.img_size, interpolation=cv2.INTER_NEAREST)
-        projected_img[projected_img > self.xlim[1]] = self.xlim[1]
+        projected_img[projected_img > self.max_depth] = self.max_depth
         projected_img = projected_img[np.newaxis, ...]
 
         sample = {'cloud': velo_pc_filtered,                    \
@@ -261,7 +262,7 @@ if __name__ == '__main__':
 
         # points on image
         projected_pts = np.squeeze(sample['lidar_cam_projection'], 0)
-        projected_pts = colorize_depth_map(projected_pts)
+        projected_pts = colorize_depth_map(projected_pts, mask_zeros=True)
         projected_pts = cv2.resize(projected_pts, (width, height), interpolation = cv2.INTER_NEAREST) 
         projected_pts = cv2.cvtColor(projected_pts, cv2.COLOR_RGB2BGR)
         projected_pts = np.array(projected_pts, dtype=np.uint8)
