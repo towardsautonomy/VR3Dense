@@ -15,7 +15,7 @@ Install conda environment as: ```conda env create -f conda_env.yml```.
 
 ## Training, Testing, and Evaluation of VR3Dense  
 
-### Training on KITTI Object Dataset
+### 1. Training on KITTI Object Dataset
 
 Please download *left*, *right*, *velodyne* data, and *labels* from here: http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d and extract them. 
 The network can be trained as: 
@@ -27,7 +27,7 @@ python train.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object_subset 
 
 Or alternatively, you can run the provided bash script as: ```./run_experiments train```.  
 
-### Testing the pre-trained model on KITTI dataset
+### 2. Testing the pre-trained model on KITTI dataset
 
 You need a set of *left image* files and the corresponding *velodyne point-cloud* files during testing. You can download KITTI raw, or object dataset for testing. Set up the paths correctly in *test.py* and then run:
 
@@ -39,7 +39,8 @@ This will download the pre-trained model if you do not have it locally and then 
 
 The network can also be test by simply running: ```./run_experiments test```.  
 
-### Evaluation of the model on KITTI dataset
+A demo of the inference pipeline is shown in ```src/misc/demo.ipynb```.
+### 3. Evaluation of the model on KITTI dataset
 
 For evaluation of the model, you need a set of *left image* files and the corresponding *velodyne point-cloud* files. Set up the paths correctly in *src/eval_kitti.py* and then run: 
 
