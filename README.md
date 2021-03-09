@@ -20,9 +20,9 @@ Install conda environment as: ```conda env create -f conda_env.yml```.
 Please download *left*, *right*, *velodyne* data, and *labels* from here: http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d and extract them. 
 The network can be trained as: 
 ```
-python train.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object \
-                    --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti \
-                    --dense_depth
+python train.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object_subset \
+                --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti_ablation_depth_unsup_no_smooth_loss \
+                --dense_depth --concat_latent_vector 
 ```
 
 Or alternatively, you can run the provided bash script as: ```./run_experiments train```.  
@@ -32,7 +32,7 @@ Or alternatively, you can run the provided bash script as: ```./run_experiments 
 You need a set of *left image* files and the corresponding *velodyne point-cloud* files during testing. You can download KITTI raw, or object dataset for testing. Set up the paths correctly in *test.py* and then run:
 
 ```
-python test.py --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti --dense_depth
+python test.py --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti --dense_depth --concat_latent_vector 
 ```
 
 This will download the pre-trained model if you do not have it locally and then run inference on it. You can choose to use a multi-object tracker by modifying the *TRACKING* parameter within *test.py*. This work uses **[AB3DMOT](https://github.com/xinshuoweng/AB3DMOT)** for multi-object tracking.
@@ -45,7 +45,7 @@ For evaluation of the model, you need a set of *left image* files and the corres
 
 ```
 python src/eval_kitti.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object \
-                         --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti --dense_depth
+                         --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti --dense_depth --concat_latent_vector 
 ```
 
 This will generate a set of *.txt* files for object detection, and compute *depth prediction* metrics for each file - which will be summarized at the end. Once you have obtained a set of *.txt* files, you can either use the *kitti object evaluation kit* to compute performance, or alternatively *zip* them and submit to KITTI evaluation server. Please follow [this](#kitti-evaluation) section for KITTI evaluation locally.
@@ -58,7 +58,7 @@ This will generate a set of *.txt* files for object detection, and compute *dept
 
 ```
 Easy    Mod.    Hard
-1.01    1.70    1.73
+2.01    2.05    2.41
 ```
 
 ### Dense Depth Reconstruction
@@ -69,7 +69,7 @@ Dense Depth Map prediction is evaluated based on the pixels for which we have li
 | ========================================================================== |
 | abs_rel  | sq_rel   | rmse     | rmse_log | a1       | a2       | a3       |
 | ========================================================================== |
-| 0.282412 | 7.848874 | 9.129279 | 0.363975 | 0.756529 | 0.877216 | 0.931778 |
+| 0.219240 | 3.859928 | 7.164907 | 0.302273 | 0.760768 | 0.888690 | 0.944800 |
 | ========================================================================== |
 ```
 

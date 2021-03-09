@@ -322,23 +322,23 @@ class DepthL2Loss(nn.Module):
         self.lambda_weight = lambda_weight
         self.decay_rate = decay_rate
 
-    def forward(self, lidar_cam_projection, depth_pred, depth_mask):
+    def forward(self, lidar_cam_projection, depth_pred, depth_mask, epoch):
         # decay the weight
-        self.lambda_weight = self.lambda_weight - (self.lambda_weight * self.decay_rate)
+        lambda_weight_decayed = self.lambda_weight - (epoch * self.lambda_weight * self.decay_rate)
         
         # create depth mask
         n_true_pts = torch.sum(depth_mask)
 
-        depth_l2_loss = self.lambda_weight * (torch.sum(depth_mask * (lidar_cam_projection - depth_pred) ** 2) / n_true_pts)
+        depth_l2_loss = lambda_weight_decayed * (torch.sum(depth_mask * (lidar_cam_projection - depth_pred) ** 2) / n_true_pts)
 
         # return the loss
         return depth_l2_loss
 
 class DepthSmoothnessLoss(nn.Module):
-    def __init__(self, lambda_weight=1.0):
+    def __init__(self, lambda_weight=1.0, alpha=0.5):
         super(DepthSmoothnessLoss, self).__init__()
         self.lambda_weight = lambda_weight
-        self.grad_alpha = 0.5
+        self.grad_alpha = alpha
         self.edge_preserverance_loss = DepthEdgePreserveranceLoss()
         # grayscale transformation
         self.to_grayscale = transforms.Compose([

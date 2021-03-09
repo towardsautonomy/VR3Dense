@@ -37,18 +37,35 @@ if __name__ == "__main__":
     exp_id = 'None'
     if args.exp_id != '':
         exp_id = args.exp_id
-    exp_str = 'vr3d.learning_rate_{}.n_xgrids_{}.n_ygrids_{}.xlim_{}_{}.ylim_{}_{}.zlim_{}_{}.max_depth_{}.vol_size_{}x{}x{}.img_size_{}x{}.dense_depth_{}.exp_id_{}'.format(
+    exp_str = 'vr3d.learning_rate_{}.n_xgrids_{}.n_ygrids_{}.xlim_{}_{}.ylim_{}_{}.zlim_{}_{}.max_depth_{}.vol_size_{}x{}x{}.img_size_{}x{}.dense_depth_{}.concat_latent_vector_{}.exp_id_{}'.format(
                     args.learning_rate, args.n_xgrids, args.n_ygrids, args.xmin, args.xmax, args.ymin, args.ymax, \
                     args.zmin, args.zmax, args.max_depth, args.vol_size_x, args.vol_size_y, args.vol_size_z, args.img_size_x, \
-                    args.img_size_y, args.dense_depth, exp_id)
+                    args.img_size_y, args.dense_depth, args.concat_latent_vector, exp_id)
     model_exp_dir = os.path.join(args.modeldir, exp_str)
     # make directories
     os.system('mkdir -p {}'.format(model_exp_dir))
     
+    # lambda weights
+    loss_weights = [args.lambda_conf_loss, 
+                      args.lambda_x_loss,
+                      args.lambda_y_loss,
+                      args.lambda_z_loss,
+                      args.lambda_l_loss,
+                      args.lambda_w_loss,
+                      args.lambda_h_loss,
+                      args.lambda_yaw_loss,
+                      args.lambda_iou_loss,
+                      args.lambda_class_loss,
+                      args.lambda_depth_unsup_loss,
+                      args.lambda_depth_l2_loss,
+                      args.lambda_depth_smooth_loss,
+                      args.alpha_depth_smooth_loss]
+
     # define model
     obj_label_len = len(pose_fields) + len(label_map) # 9 for poses, rest for object classes
     model = VR3Dense(in_channels=1, n_xgrids=args.n_xgrids, n_ygrids=args.n_ygrids, obj_label_len=obj_label_len, \
-                    dense_depth=args.dense_depth, train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only)
+                    dense_depth=args.dense_depth, train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only, \
+                    concat_latent_vector=args.concat_latent_vector)
     model = model.to(device)
     
     # print model summary
@@ -85,7 +102,7 @@ if __name__ == "__main__":
                       epochs=args.epochs, batch_size=args.batch_size, learning_rate=args.learning_rate, \
                       xmin=args.xmin, xmax=args.xmax, ymin=args.ymin, ymax=args.ymax, zmin=args.zmin, zmax=args.zmax, \
                       max_depth=args.max_depth, vol_size_x=args.vol_size_x, vol_size_y=args.vol_size_y, vol_size_z=args.vol_size_z, \
-                      img_size_x=args.img_size_x, img_size_y=args.img_size_y, \
+                      img_size_x=args.img_size_x, img_size_y=args.img_size_y, loss_weights=loss_weights, \
                       modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
                       model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps, \
                       train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only)

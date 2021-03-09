@@ -18,9 +18,9 @@ pose_fields = ['conf','x','y','z','l','w','h','cos_yaw','sin_yaw']
 pose_vec_len = len(pose_fields)
 
 # pretrained weights
-pretrained_weights = [{'exp':'vr3d.learning_rate_0.0001.n_xgrids_16.n_ygrids_16.xlim_0.0_70.0.ylim_-25.0_25.0.zlim_-2.5_1.0.max_depth_100.0.vol_size_256x256x16.img_size_512x256.dense_depth_True.exp_id_kitti',
-                      'url':'https://drive.google.com/file/d/1KcffihXYu0bW3NC4I0LvzTkzE1GP6Xpz/view?usp=sharing',
-                      'file_id':'1KcffihXYu0bW3NC4I0LvzTkzE1GP6Xpz'}
+pretrained_weights = [{'exp':'vr3d.learning_rate_0.0001.n_xgrids_16.n_ygrids_16.xlim_0.0_70.0.ylim_-25.0_25.0.zlim_-2.5_1.0.max_depth_100.0.vol_size_256x256x16.img_size_512x256.dense_depth_True.concat_latent_vector_True.exp_id_kitti',
+                      'url':'https://drive.google.com/file/d/13JVrBhcLDEDSMkfsnAn7Iuu2Sma1H-iz/view?usp=sharing',
+                      'file_id':'13JVrBhcLDEDSMkfsnAn7Iuu2Sma1H-iz'}
                      ]
 
 # load pretrained weights
@@ -749,13 +749,14 @@ def colorize_depth_map(depth_map, min_depth=0, max_depth=100, cmap="magma", mask
     min_depth = depth_map.min() if min_depth is None else min_depth 
     max_depth = depth_map.max() if max_depth is None else max_depth  
     
-    # invert the scale for better colormap visualization 
-    depth_map = max_depth - depth_map
-    
     # apply mask
     if mask_zeros:
         mask = (depth_map == 0)
 
+    # invert the scale for better colormap visualization 
+    depth_map = max_depth - depth_map
+
+    # scale between 0 to 1
     if min_depth != max_depth:
         depth_map = (depth_map - min_depth) / (max_depth - min_depth)
     else:

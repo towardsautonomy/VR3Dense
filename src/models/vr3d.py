@@ -187,73 +187,6 @@ class LidarObjectDetection_FC(nn.Module):
         out = torch.cat((conf_out, pose_out, class_out), dim=-1).contiguous().view(-1,self.n_xgrids*self.n_ygrids*self.obj_label_len)
         return out
 
-# class EncoderBlock(nn.Module):
-
-#     def __init__(self, in_channels, out_channels, kernel_size=3, stride=2, padding=1, normalization=True, norm_type='instance_norm'):
-
-#         super(EncoderBlock, self).__init__() 
-
-#         self.convA = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, 
-#                             kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
-#         self.convB = nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, stride=1, padding=1)
-#         self.leakyrelu = nn.LeakyReLU(0.2)
-#         self.instance_norm = nn.InstanceNorm2d(out_channels)
-#         self.batch_norm = nn.BatchNorm2d(out_channels)
-
-#         self.normalization = normalization
-#         self.norm_type = norm_type
-    
-#     def forward(self, x):
-
-#         x = self.convA(x)
-#         x = self.leakyrelu(x)
-#         x = self.convB(x)
-#         x = self.leakyrelu(x)
-#         if self.normalization == True and self.norm_type == 'instance_norm':
-#             x = self.instance_norm(x)
-#         elif self.normalization == True and self.norm_type == 'batch_norm':
-#             x = self.batch_norm(x)
-        
-#         return x
-
-# class DecoderBlock(nn.Module):
-
-#     def __init__(self, in_channels, out_channels, normalization=True, norm_type='instance_norm'):
-
-#         super(DecoderBlock, self).__init__() 
-
-#         self.in_channels = in_channels
-#         self.out_channels = out_channels
-
-#         self.convA = nn.Conv2d(in_channels, out_channels, 3, 1, 1)
-#         self.leakyrelu = nn.LeakyReLU(0.2)
-#         self.convB = nn.Conv2d(out_channels, out_channels, 3, 1, 1)
-#         self.instance_norm = nn.InstanceNorm2d(out_channels)
-#         self.batch_norm = nn.BatchNorm2d(out_channels)
-
-#         self.normalization = normalization
-#         self.norm_type = norm_type
-
-#     def forward(self, x, concat_with=None):
-#         upsampled_x = x
-#         if concat_with is not None:
-#             concat_h_dim = concat_with.shape[2]
-#             concat_w_dim = concat_with.shape[3]
-
-#             upsampled_x = F.interpolate(x, size=[concat_h_dim, concat_w_dim], mode="bilinear", align_corners=True)
-#             upsampled_x = torch.cat([upsampled_x, concat_with], dim=1)
-        
-#         upsampled_x = self.convA(upsampled_x)
-#         upsampled_x = self.leakyrelu(upsampled_x)
-#         upsampled_x = self.convB(upsampled_x)
-#         upsampled_x = self.leakyrelu(upsampled_x)
-#         if self.normalization == True and self.norm_type == 'instance_norm':
-#             upsampled_x = self.instance_norm(upsampled_x)
-#         elif self.normalization == True and self.norm_type == 'batch_norm':
-#             upsampled_x = self.batch_norm(upsampled_x)
-
-#         return upsampled_x
-
 class EncoderBlock(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=2, padding=1, normalization=True, norm_type='instance_norm'):
@@ -415,7 +348,8 @@ class DenseDepth(nn.Module):
 
 class VR3Dense(nn.Module):
 
-    def __init__(self, in_channels, n_xgrids, n_ygrids, obj_label_len, base_filters=8, n_blocks=6, dense_depth=True, train_depth_only=False, train_obj_only=False):
+    def __init__(self, in_channels, n_xgrids, n_ygrids, obj_label_len, base_filters=8, n_blocks=6, \
+                        dense_depth=True, train_depth_only=False, train_obj_only=False, concat_latent_vector=True):
         super(VR3Dense, self).__init__()
 
         self.dense_depth = dense_depth
@@ -423,6 +357,8 @@ class VR3Dense(nn.Module):
         self.latent_vector_len = (n_xgrids*n_ygrids*obj_label_len)
         self.train_depth_only = train_depth_only
         self.train_obj_only = train_obj_only
+        self.concat_latent_vector = concat_latent_vector
+
         if (train_depth_only == True) and (train_obj_only == True):
             raise Exception('Only one of \'train_depth_only\', \'train_obj_only\' can be set to true at a time.')
         
@@ -433,7 +369,11 @@ class VR3Dense(nn.Module):
             last_block_n_channels = 512
             self.depth_latent_vector_len = (in_dim[0] // (2**n_downsampling_blocks)) * (in_dim[1] // (2**n_downsampling_blocks)) * last_block_n_channels
             self.depth_encoder = DepthEncoder()
-            self.depth_decoder = DepthDecoder(self.depth_latent_vector_len, self.depth_latent_vector_len+self.lidar_obj_fc_in_dim, last_block_n_channels)
+            self.depth_decoder_in_dim = self.depth_latent_vector_len
+
+            if self.concat_latent_vector:
+                self.depth_decoder_in_dim += self.lidar_obj_fc_in_dim
+            self.depth_decoder = DepthDecoder(self.depth_latent_vector_len, self.depth_decoder_in_dim, last_block_n_channels)
 
         self.lidar_object_detection_cnn = LidarObjectDetection_CNN(in_channels, obj_label_len, base_filters, n_blocks, 0)
         self.lidar_object_detection_fc = LidarObjectDetection_FC(n_xgrids, n_ygrids, self.lidar_obj_fc_in_dim, obj_label_len)
@@ -456,7 +396,8 @@ class VR3Dense(nn.Module):
             else:
                 x0, x1, x2, x3, x4, x5, x6 = self.depth_encoder(x_camera)
                 depth_latent_vector = x6
-                depth_latent_vector = torch.cat([latent_vector.detach(), depth_latent_vector], dim=1)
+                if self.concat_latent_vector:
+                    depth_latent_vector = torch.cat([latent_vector.detach(), depth_latent_vector], dim=1)
                 depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, x5, depth_latent_vector))
 
         if self.train_depth_only:
@@ -470,59 +411,3 @@ class VR3Dense(nn.Module):
         else:
             return_tuple = object_pose_pred
         return return_tuple
-
-# class VR3Dense(nn.Module):
-
-#     def __init__(self, in_channels, n_xgrids, n_ygrids, obj_label_len, base_filters=8, n_blocks=6, dense_depth=True, train_depth_only=False, train_obj_only=False):
-#         super(VR3Dense, self).__init__()
-
-#         self.dense_depth = dense_depth
-#         self.depth_latent_vector_len = 0
-#         self.latent_vector_len = (n_xgrids*n_ygrids*obj_label_len)
-#         self.train_depth_only = train_depth_only
-#         self.train_obj_only = train_obj_only
-#         if (train_depth_only == True) and (train_obj_only == True):
-#             raise Exception('Only one of \'train_depth_only\', \'train_obj_only\' can be set to true at a time.')
-        
-#         self.lidar_obj_fc_in_dim = 16*16*obj_label_len
-#         if dense_depth:
-#             in_dim = 256
-#             n_downsampling_blocks = 5
-#             last_block_n_channels = 256
-#             self.depth_latent_vector_len = (in_dim // (2**n_downsampling_blocks)) * (in_dim // (2**n_downsampling_blocks)) * last_block_n_channels
-#             self.depth_encoder = DepthEncoder()
-#             self.depth_decoder = DepthDecoder(self.depth_latent_vector_len, self.depth_latent_vector_len, last_block_n_channels)
-
-#         self.lidar_object_detection_cnn = LidarObjectDetection_CNN(in_channels, obj_label_len, base_filters, n_blocks, 0)
-#         self.lidar_object_detection_fc = LidarObjectDetection_FC(n_xgrids, n_ygrids, self.lidar_obj_fc_in_dim, obj_label_len)
-    
-#     def forward(self, x_lidar, x_camera):
-#         if self.train_depth_only:
-#             with torch.no_grad():
-#                 latent_vector = self.lidar_object_detection_cnn(x_lidar)
-#         else:
-#             latent_vector = self.lidar_object_detection_cnn(x_lidar)
-#         depth_pred = None
-
-#         if self.dense_depth:
-#             if self.train_obj_only:
-#                 with torch.no_grad():
-#                     x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
-#                     depth_latent_vector = x5
-#                     depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
-#             else:
-#                 x0, x1, x2, x3, x4, x5 = self.depth_encoder(x_camera)
-#                 depth_latent_vector = x5
-#                 depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, depth_latent_vector))
-
-#         if self.train_depth_only:
-#             with torch.no_grad():
-#                 object_pose_pred = self.lidar_object_detection_fc(latent_vector)
-#         else:
-#             object_pose_pred = self.lidar_object_detection_fc(latent_vector)
-
-#         if self.dense_depth:
-#             return_tuple = (object_pose_pred, depth_pred)
-#         else:
-#             return_tuple = object_pose_pred
-#         return return_tuple

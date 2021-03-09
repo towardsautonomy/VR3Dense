@@ -29,8 +29,8 @@ class Trainer(object):
 
     def __init__(self, dataroot, model, dataset, dense_depth,
                        n_xgrids, n_ygrids, epochs, batch_size, learning_rate, exp_str,
-                       xmin, xmax, ymin, ymax, zmin, zmax, max_depth,
-                       vol_size_x, vol_size_y, vol_size_z, img_size_x, img_size_y,
+                       xmin, xmax, ymin, ymax, zmin, zmax, max_depth, vol_size_x, 
+                       vol_size_y, vol_size_z, img_size_x, img_size_y, loss_weights,
                        mode='train', modeldir='./models', logdir='./logs', plotdir='./plots',
                        model_save_steps=10, early_stop_steps=10, test_split=0.1,
                        train_depth_only=False, train_obj_only=False):
@@ -98,19 +98,19 @@ class Trainer(object):
                                             shuffle=True, num_workers=4, collate_fn=self.collate_fn)
                                 
             # loss functions
-            self.conf_loss = ConfLoss(lambda_weight=1.0)
-            self.x_loss = XLoss(lambda_weight=1.0)
-            self.y_loss = YLoss(lambda_weight=1.0)
-            self.z_loss = ZLoss(lambda_weight=1.0)
-            self.l_loss = LLoss(lambda_weight=1.0)
-            self.w_loss = WLoss(lambda_weight=1.0)
-            self.h_loss = HLoss(lambda_weight=1.0)
-            self.yaw_loss = YawLoss(lambda_weight=2.0)
-            self.iou_loss = IOULoss(lambda_weight=0.1)
-            self.class_loss = ClassLoss(lambda_weight=0.2)
-            self.depth_unsupervised_loss = DepthUnsupervisedLoss(lambda_weight=1.0)
-            self.depth_l2_loss = DepthL2Loss(lambda_weight=0.0)
-            self.depth_smoothness_loss = DepthSmoothnessLoss(lambda_weight=0.1)
+            self.conf_loss = ConfLoss(lambda_weight=loss_weights[0])
+            self.x_loss = XLoss(lambda_weight=loss_weights[1])
+            self.y_loss = YLoss(lambda_weight=loss_weights[2])
+            self.z_loss = ZLoss(lambda_weight=loss_weights[3])
+            self.l_loss = LLoss(lambda_weight=loss_weights[4])
+            self.w_loss = WLoss(lambda_weight=loss_weights[5])
+            self.h_loss = HLoss(lambda_weight=loss_weights[6])
+            self.yaw_loss = YawLoss(lambda_weight=loss_weights[7])
+            self.iou_loss = IOULoss(lambda_weight=loss_weights[8])
+            self.class_loss = ClassLoss(lambda_weight=loss_weights[9])
+            self.depth_unsupervised_loss = DepthUnsupervisedLoss(lambda_weight=loss_weights[10])
+            self.depth_l2_loss = DepthL2Loss(lambda_weight=loss_weights[11])
+            self.depth_smoothness_loss = DepthSmoothnessLoss(lambda_weight=loss_weights[12], alpha=loss_weights[13])
             # Mean IOU
             self.mean_iou = MeanIOU()
             # training modes
@@ -255,7 +255,7 @@ class Trainer(object):
                             depth_unsupervised_loss = self.depth_unsupervised_loss(left_img_batch, right_img_batch, denormalize_depth(depth_pred_left, self.max_depth), denormalize_depth(depth_pred_right, self.max_depth), self.dataset.fx, self.dataset.baseline)
                             # l2 loss
                             depth_mask = (y_lidar_cam_projection_batch > 0)
-                            depth_l2_loss = self.depth_l2_loss(normalize_depth(y_lidar_cam_projection_batch, self.max_depth), depth_pred_left, depth_mask)
+                            depth_l2_loss = self.depth_l2_loss(normalize_depth(y_lidar_cam_projection_batch, self.max_depth), depth_pred_left, depth_mask, epoch=epoch)
                             # edge-aware-smoothing loss
                             depth_smooth_loss = self.depth_smoothness_loss(x_left_batch, depth_pred_left)
                             depth_smooth_loss_item = depth_smooth_loss.item()
@@ -385,7 +385,7 @@ class Trainer(object):
                         depth_unsupervised_loss = self.depth_unsupervised_loss(left_img_batch, right_img_batch, denormalize_depth(depth_pred_left, self.max_depth), denormalize_depth(depth_pred_right, self.max_depth), self.dataset.fx, self.dataset.baseline)
                         # l2 loss
                         depth_mask = (y_lidar_cam_projection_batch > 0)
-                        depth_l2_loss = self.depth_l2_loss(normalize_depth(y_lidar_cam_projection_batch, self.max_depth), depth_pred_left, depth_mask)
+                        depth_l2_loss = self.depth_l2_loss(normalize_depth(y_lidar_cam_projection_batch, self.max_depth), depth_pred_left, depth_mask, epoch=epoch)
                         # edge-aware-smoothing loss
                         depth_smooth_loss = self.depth_smoothness_loss(x_left_batch, depth_pred_left)
                     depth_loss = depth_unsupervised_loss + depth_l2_loss + depth_smooth_loss

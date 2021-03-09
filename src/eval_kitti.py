@@ -34,7 +34,7 @@ T_lidar2cam = [[ 0.0002, -0.9999, -0.0106,  0.0594],
 
 # evaluate object/depth
 eval_object = True
-eval_depth = True
+eval_depth = False
 
 # main function
 if __name__ == "__main__":
@@ -46,15 +46,32 @@ if __name__ == "__main__":
     exp_id = 'None'
     if args.exp_id != '':
         exp_id = args.exp_id
-    exp_str = 'vr3d.learning_rate_{}.n_xgrids_{}.n_ygrids_{}.xlim_{}_{}.ylim_{}_{}.zlim_{}_{}.max_depth_{}.vol_size_{}x{}x{}.img_size_{}x{}.dense_depth_{}.exp_id_{}'.format(
+    exp_str = 'vr3d.learning_rate_{}.n_xgrids_{}.n_ygrids_{}.xlim_{}_{}.ylim_{}_{}.zlim_{}_{}.max_depth_{}.vol_size_{}x{}x{}.img_size_{}x{}.dense_depth_{}.concat_latent_vector_{}.exp_id_{}'.format(
                     args.learning_rate, args.n_xgrids, args.n_ygrids, args.xmin, args.xmax, args.ymin, args.ymax, \
                     args.zmin, args.zmax, args.max_depth, args.vol_size_x, args.vol_size_y, args.vol_size_z, args.img_size_x, \
-                    args.img_size_y, args.dense_depth, exp_id)
+                    args.img_size_y, args.dense_depth, args.concat_latent_vector, exp_id)
     
+    # lambda weights
+    loss_weights = [args.lambda_conf_loss, 
+                      args.lambda_x_loss,
+                      args.lambda_y_loss,
+                      args.lambda_z_loss,
+                      args.lambda_l_loss,
+                      args.lambda_w_loss,
+                      args.lambda_h_loss,
+                      args.lambda_yaw_loss,
+                      args.lambda_iou_loss,
+                      args.lambda_class_loss,
+                      args.lambda_depth_unsup_loss,
+                      args.lambda_depth_l2_loss,
+                      args.lambda_depth_smooth_loss,
+                      args.alpha_depth_smooth_loss]
+
     # define model
     obj_label_len = len(pose_fields) + len(label_map) # 9 for poses, rest for object classes
     model = VR3Dense(in_channels=1, n_xgrids=args.n_xgrids, n_ygrids=args.n_ygrids, obj_label_len=obj_label_len, \
-                    dense_depth=args.dense_depth, train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only)
+                    dense_depth=args.dense_depth, train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only, \
+                    concat_latent_vector=args.concat_latent_vector)
     model = model.to(device)
 
     # load weights
@@ -66,7 +83,7 @@ if __name__ == "__main__":
                       epochs=args.epochs, batch_size=args.batch_size, learning_rate=args.learning_rate, \
                       xmin=args.xmin, xmax=args.xmax, ymin=args.ymin, ymax=args.ymax, zmin=args.zmin, zmax=args.zmax, \
                       max_depth=args.max_depth, vol_size_x=args.vol_size_x, vol_size_y=args.vol_size_y, vol_size_z=args.vol_size_z, \
-                      img_size_x=args.img_size_x, img_size_y=args.img_size_y, \
+                      img_size_x=args.img_size_x, img_size_y=args.img_size_y, loss_weights=loss_weights, \
                       modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
                       model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps)
 
@@ -97,7 +114,7 @@ if __name__ == "__main__":
             if eval_depth:
                 projected_gt = project_pc2image(velo_pc, T_lidar2cam, K, (img_rgb.shape[1], img_rgb.shape[0]))
                 dense_depth = cv2.resize(dense_depth, (img_rgb.shape[1], img_rgb.shape[0]), interpolation = cv2.INTER_NEAREST) 
-                depth_metrics = compute_depth_metrics(projected_gt, dense_depth)
+                depth_metrics = compute_depth_metrics(projected_gt, dense_depth, max_depth=70.0)
                 depth_metrics_list.append([depth_metrics['abs_rel'], 
                                         depth_metrics['sq_rel'], 
                                         depth_metrics['rmse'], 
@@ -115,7 +132,7 @@ if __name__ == "__main__":
 
     if eval_object:
         # write to file
-        predictions2file(label_dict_list, filenames, resolution=(1242, 375), K=K, exp='kitti_car')
+        predictions2file(label_dict_list, filenames, resolution=(1242, 375), K=K, exp=exp_id)
 
     if eval_depth:
         # print depth evaluation metrics

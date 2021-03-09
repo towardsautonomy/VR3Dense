@@ -3,9 +3,9 @@ import numpy as np
 import os
 import shutil
 
-n_test_samples = 1000
-kitti_path = '/media/shubham/GoldMine/datasets/KITTI/object/training/'
-kitti_val_dst_path = '/media/shubham/GoldMine/datasets/KITTI/object_subset/training/'
+n_test_samples = 100
+kitti_path = '/media/shubham/GoldMine/datasets/KITTI/object/testing/'
+kitti_val_dst_path = '/media/shubham/GoldMine/datasets/KITTI/object_subset/testing/'
 kitti_val_img2_path = kitti_val_dst_path + 'image_2/'
 kitti_val_img3_path = kitti_val_dst_path + 'image_3/'
 kitti_val_velo_path = kitti_val_dst_path + 'velodyne/'
