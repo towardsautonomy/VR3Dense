@@ -47,7 +47,7 @@ elif [ "$MODE" == "test" ]; then
 elif [ "$MODE" == "test_and_compare" ]; then
 	# test and compare
     python test_and_compare.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object \
-                    --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --dense_depth --concat_latent_vector --exp_id=kitti 
+                               --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --dense_depth --concat_latent_vector --exp_id=kitti 
 
 elif [ "$MODE" == "evaluate" ]; then
 	# evaluate

@@ -34,7 +34,7 @@ T_lidar2cam = [[ 0.0002, -0.9999, -0.0106,  0.0594],
 
 # evaluate object/depth
 eval_object = True
-eval_depth = False
+eval_depth = True
 
 # main function
 if __name__ == "__main__":

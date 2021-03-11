@@ -2,8 +2,16 @@
 
 VR3Dense jointly trains for 3D object detection as well as semi-supervised dense depth reconstruction. Object detection uses 3D convolutions over voxelized point-cloud to obtain 3D bounding-boxes, while dense depth reconstruction network uses an *hourglass* architecture with skip connections. The complete pipeline has been trained on KITTI object training dataset with 90% train and 10% validation split. VR3Dense supports detection and classification of the following classes: ```Car, Cyclist, Pedestrian```. VR3Dense runs at about **139.89fps** on a PC with i9 10850K processor with single NVIDIA RTX 3090 GPU.  
 
+## Our Approach
+
+![](media/VR3Dense_Approach.png)
+
+## Model Predictions 
 ![](media/demo.gif)  
-*Figure 1 - VR3Dense tested on KITTI raw dataset | Date:2011-09-26 | Sequence: 104*  
+*Figure 1 - VR3Dense tested on KITTI raw dataset | Date:2011-09-26 | Sequence: 0009*  
+
+![](media/demo_scene104.gif)  
+*Figure 2 - VR3Dense tested on KITTI raw dataset | Date:2011-09-26 | Sequence: 0104*  
 
 ## Dependencies 
 
@@ -20,8 +28,8 @@ Install conda environment as: ```conda env create -f conda_env.yml```.
 Please download *left*, *right*, *velodyne* data, and *labels* from here: http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d and extract them. 
 The network can be trained as: 
 ```
-python train.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object_subset \
-                --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti_ablation_depth_unsup_no_smooth_loss \
+python train.py --dataroot={KITTI_OBJECT_TRAINING_DATAROOT} \
+                --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti \
                 --dense_depth --concat_latent_vector 
 ```
 
@@ -45,7 +53,7 @@ A demo of the inference pipeline is shown in ```src/misc/demo.ipynb```.
 For evaluation of the model, you need a set of *left image* files and the corresponding *velodyne point-cloud* files. Set up the paths correctly in *src/eval_kitti.py* and then run: 
 
 ```
-python src/eval_kitti.py --dataroot=/media/shubham/GoldMine/datasets/KITTI/object \
+python src/eval_kitti.py --dataroot={KITTI_OBJECT_TESTING_DATAROOT} \
                          --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti --dense_depth --concat_latent_vector 
 ```
 

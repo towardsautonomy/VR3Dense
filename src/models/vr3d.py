@@ -169,7 +169,8 @@ class LidarObjectDetection_FC(nn.Module):
         self.out_channels = n_xgrids * n_ygrids * obj_label_len
 
         # ## Fully-Connected Layers	
-        # First fully connected layer
+        # self.fc1 = nn.Linear(self.in_dim, 4096)
+        # self.fc2 = nn.Linear(4096, self.out_channels)
         self.fc1 = nn.Linear(self.in_dim, 4096)
         self.fc2 = nn.Linear(4096, self.out_channels)
 
@@ -391,7 +392,8 @@ class VR3Dense(nn.Module):
                 with torch.no_grad():
                     x0, x1, x2, x3, x4, x5, x6 = self.depth_encoder(x_camera)
                     depth_latent_vector = x6
-                    depth_latent_vector = torch.cat([latent_vector.detach(), depth_latent_vector], dim=1)
+                    if self.concat_latent_vector:
+                        depth_latent_vector = torch.cat([latent_vector.detach(), depth_latent_vector], dim=1)
                     depth_pred = self.depth_decoder((x0, x1, x2, x3, x4, x5, depth_latent_vector))
             else:
                 x0, x1, x2, x3, x4, x5, x6 = self.depth_encoder(x_camera)

@@ -109,9 +109,9 @@ def denormalize_depth(depth, max_depth):
     return (depth + 1.0) * (max_depth / 2)
 
 # draw point-cloud
-def draw_point_cloud_topdown(input_points, canvasSize=1000, radius=1,
+def draw_point_cloud_topdown(input_points, canvasSize=800, radius=1,
                              zrot=0, switch_xyz=[0,1,2], 
-                             xlim=(0.0,70.0), ylim=(-50.0,50.0), zlim=(-10.0,10.0)):
+                             xlim=(0.0,70.0), ylim=(-50.0,50.0), zlim=(-5.0,10.0), background_color=(255,255,255)):
     """ Render point cloud to image with alpha channel.
         Input:
             points: Nx3 numpy array (+z is up direction)
@@ -136,12 +136,12 @@ def draw_point_cloud_topdown(input_points, canvasSize=1000, radius=1,
     # x in point-cloud to image y coordinate
     def pcx_to_imgy(pcx):
         m2px = (xlim[1]-xlim[0]) / float(canvasSize)
-        imgy = canvasSize - int((float(canvasSize) / 2.0) + (pcx / m2px))
+        imgy = canvasSize - int(pcx / m2px)
         return imgy
 
     # y in point-cloud to image x coordinate
     def pcy_to_imgx(pcy):
-        m2px = ylim[1] - (ylim[1]-ylim[0]) / float(canvasSize)
+        m2px = (ylim[1]-ylim[0]) / float(canvasSize)
         imgx = int((float(canvasSize) / 2.0) - (pcy / m2px))
         return imgx
 
@@ -159,111 +159,17 @@ def draw_point_cloud_topdown(input_points, canvasSize=1000, radius=1,
         hue = huerange[0] - int((pt[2] - zlim[0]) / ztohue)
         cv2.circle(image, (imgx, imgy), radius=radius, color=(hue,255,128), thickness=-1)
 
-    # convert to RGB
-    image = cv2.cvtColor(image, cv2.COLOR_HSV2RGB)
-
-    return image
-
-# draw point-cloud with bounding-box
-def draw_point_cloud_w_bbox(input_points, label_dict_list, canvasSize=1200, radius=1,
-                             xlim=(0.0, 70.0), ylim=(-50.0,50.0), zlim=(-5.0,10.0)):
-    """ Render point cloud to image and draw bounding box.
-        Input:
-            input_points: Nx3 numpy array (+z is up direction)
-        Output:
-            colorized image as numpy array of size canvasSizexcanvasSize
-    """
-    # create mask
-    input_points_mask = np.logical_and.reduce(((input_points[:,0] > xlim[0]), (input_points[:,0] < xlim[1]), \
-                                               (input_points[:,1] > ylim[0]), (input_points[:,1] < ylim[1]), \
-                                               (input_points[:,2] > zlim[0]), (input_points[:,2] < zlim[1])))
-
-    # filter out
-    input_points = input_points[input_points_mask]
-    # hue range
-    huerange = (240, 0) # green to red
-
-    # image plane
-    image = np.zeros((canvasSize, canvasSize, 3), dtype=np.uint8)
-    if input_points is None or input_points.shape[0] == 0:
-        return image
-
-    # x in point-cloud to image y coordinate
-    def pcx_to_imgy(pcx):
-        m2px = (xlim[1]-xlim[0]) / float(canvasSize)
-        # imgy = canvasSize - int((float(canvasSize) / 2.0) + (pcx / m2px))
-        imgy = canvasSize - int(pcx / m2px)
-        return imgy
-
-    # y in point-cloud to image x coordinate
-    def pcy_to_imgx(pcy):
-        m2px = (ylim[1]-ylim[0]) / float(canvasSize)
-        imgx = int((float(canvasSize) / 2.0) - (pcy / m2px))
-        return imgx
-
-    # go through each point
-    for pt in input_points:
-        imgx = pcy_to_imgx(pt[1])
-        imgy = pcx_to_imgy(pt[0])
-
-        # draw circle
-        ztohue = (zlim[1] - zlim[0]) / (huerange[0] - huerange[1])
-        hue = huerange[0] - int((pt[2] - zlim[0]) / ztohue)
-        cv2.circle(image, (imgx, imgy), radius=radius, color=(hue,255,128), thickness=-1)
-
     # convert to BGR
     image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
-
-    # draw bounding boxes
-    for label_dict in label_dict_list:
-        x,y,z,l,w,h,yaw = label_dict['x'],label_dict['y'],label_dict['z'],label_dict['l'],label_dict['w'],label_dict['h'],label_dict['yaw']
-        yaw = np.pi/2.0 + yaw
-
-        # compute corners in birds-eye view
-        corners = []
-        corners.append([ l/2, -w/2, 0.0])
-        corners.append([ l/2,  w/2, 0.0])
-        corners.append([-l/2,  w/2, 0.0])
-        corners.append([-l/2, -w/2, 0.0])
-        corners = np.asarray(corners, dtype=np.float32)
-
-        # rotate input_points
-        M = euler2mat(yaw, 0, 0)
-        corners = (np.dot(M, corners.transpose())).transpose()
-        corners = corners + [x, y, z]
-
-        # corners in pixel
-        corners_px = []
-        for corner in corners:
-            corners_px.append([pcy_to_imgx(corner[1]), pcx_to_imgy(corner[0])])
-        corners_px = np.asarray(corners_px, dtype=np.int)
-
-        # draw bounding box
-        cv2.line(image, (corners_px[0,0], corners_px[0,1]), (corners_px[1,0], corners_px[1,1]), color=(255,255,255), thickness=4)
-        cv2.line(image, (corners_px[0,0], corners_px[0,1]), (corners_px[1,0], corners_px[1,1]), color=(255,0,0), thickness=2)
-        cv2.line(image, (corners_px[1,0], corners_px[1,1]), (corners_px[2,0], corners_px[2,1]), color=(255,0,0), thickness=2)
-        cv2.line(image, (corners_px[2,0], corners_px[2,1]), (corners_px[3,0], corners_px[3,1]), color=(255,0,0), thickness=2)
-        cv2.line(image, (corners_px[3,0], corners_px[3,1]), (corners_px[0,0], corners_px[0,1]), color=(255,0,0), thickness=2)
-
-        # get top-left coordinates
-        tl = (np.min(corners_px[:,0]), np.min(corners_px[:,1]))
-
-        # write class
-        cv2.putText(image, '{} {:.1f}%'.format(label_dict['class'], label_dict['conf']*100.0), 
-            (tl[0],tl[1]-5), 
-            cv2.FONT_HERSHEY_SIMPLEX, 
-            0.5,
-            color=(255,255,255),
-            thickness=1,
-            lineType=2)
+    image[np.where(np.all(image == [0,0,0], axis=-1))] = background_color
 
     # scale between 0.0 and 1.0
     image = image.astype(np.float32) / 255.0
     return image
 
 # draw point-cloud with bounding-box
-def draw_point_cloud_w_bbox_id(input_points, label_dict_list, canvasSize=1200, radius=1,
-                             xlim=(0.0, 70.0), ylim=(-50.0,50.0), zlim=(-5.0,10.0)):
+def draw_point_cloud_w_bbox(input_points, label_dict_list, canvasSize=800, radius=1,
+                             xlim=(0.0, 70.0), ylim=(-50.0,50.0), zlim=(-5.0,10.0), background_color=(255,255,255), text_color=(0,0,0)):
     """ Render point cloud to image and draw bounding box.
         Input:
             input_points: Nx3 numpy array (+z is up direction)
@@ -288,7 +194,6 @@ def draw_point_cloud_w_bbox_id(input_points, label_dict_list, canvasSize=1200, r
     # x in point-cloud to image y coordinate
     def pcx_to_imgy(pcx):
         m2px = (xlim[1]-xlim[0]) / float(canvasSize)
-        # imgy = canvasSize - int((float(canvasSize) / 2.0) + (pcx / m2px))
         imgy = canvasSize - int(pcx / m2px)
         return imgy
 
@@ -310,6 +215,7 @@ def draw_point_cloud_w_bbox_id(input_points, label_dict_list, canvasSize=1200, r
 
     # convert to BGR
     image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
+    image[np.where(np.all(image == [0,0,0], axis=-1))] = background_color
 
     # draw bounding boxes
     for label_dict in label_dict_list:
@@ -336,7 +242,104 @@ def draw_point_cloud_w_bbox_id(input_points, label_dict_list, canvasSize=1200, r
         corners_px = np.asarray(corners_px, dtype=np.int)
 
         # draw bounding box
-        cv2.line(image, (corners_px[0,0], corners_px[0,1]), (corners_px[1,0], corners_px[1,1]), color=(255,255,255), thickness=4)
+        cv2.line(image, (corners_px[0,0], corners_px[0,1]), (corners_px[1,0], corners_px[1,1]), color=(0,0,0), thickness=6)
+        cv2.line(image, (corners_px[0,0], corners_px[0,1]), (corners_px[1,0], corners_px[1,1]), color=(255,0,0), thickness=2)
+        cv2.line(image, (corners_px[1,0], corners_px[1,1]), (corners_px[2,0], corners_px[2,1]), color=(255,0,0), thickness=2)
+        cv2.line(image, (corners_px[2,0], corners_px[2,1]), (corners_px[3,0], corners_px[3,1]), color=(255,0,0), thickness=2)
+        cv2.line(image, (corners_px[3,0], corners_px[3,1]), (corners_px[0,0], corners_px[0,1]), color=(255,0,0), thickness=2)
+
+        # # get top-left coordinates
+        # tl = (np.min(corners_px[:,0]), np.min(corners_px[:,1]))
+
+        # # write class
+        # cv2.putText(image, '{} {:.1f}%'.format(label_dict['class'], label_dict['conf']*100.0), 
+        #     (tl[0],tl[1]-5), 
+        #     cv2.FONT_HERSHEY_SIMPLEX, 
+        #     0.5,
+        #     color=text_color,
+        #     thickness=1,
+        #     lineType=2)
+
+    # scale between 0.0 and 1.0
+    image = image.astype(np.float32) / 255.0
+    return image
+
+# draw point-cloud with bounding-box
+def draw_point_cloud_w_bbox_id(input_points, label_dict_list, canvasSize=800, radius=1,
+                             xlim=(0.0, 70.0), ylim=(-50.0,50.0), zlim=(-5.0,10.0), background_color=(255,255,255), text_color=(0,0,0)):
+    """ Render point cloud to image and draw bounding box.
+        Input:
+            input_points: Nx3 numpy array (+z is up direction)
+        Output:
+            colorized image as numpy array of size canvasSizexcanvasSize
+    """
+    # create mask
+    input_points_mask = np.logical_and.reduce(((input_points[:,0] > xlim[0]), (input_points[:,0] < xlim[1]), \
+                                               (input_points[:,1] > ylim[0]), (input_points[:,1] < ylim[1]), \
+                                               (input_points[:,2] > zlim[0]), (input_points[:,2] < zlim[1])))
+
+    # filter out
+    input_points = input_points[input_points_mask]
+    # hue range
+    huerange = (240, 0) # green to red
+
+    # image plane
+    image = np.zeros((canvasSize, canvasSize, 3), dtype=np.uint8)
+    if input_points is None or input_points.shape[0] == 0:
+        return image
+
+    # x in point-cloud to image y coordinate
+    def pcx_to_imgy(pcx):
+        m2px = (xlim[1]-xlim[0]) / float(canvasSize)
+        imgy = canvasSize - int(pcx / m2px)
+        return imgy
+
+    # y in point-cloud to image x coordinate
+    def pcy_to_imgx(pcy):
+        m2px = (ylim[1]-ylim[0]) / float(canvasSize)
+        imgx = int((float(canvasSize) / 2.0) - (pcy / m2px))
+        return imgx
+
+    # go through each point
+    for pt in input_points:
+        imgx = pcy_to_imgx(pt[1])
+        imgy = pcx_to_imgy(pt[0])
+
+        # draw circle
+        ztohue = (zlim[1] - zlim[0]) / (huerange[0] - huerange[1])
+        hue = huerange[0] - int((pt[2] - zlim[0]) / ztohue)
+        cv2.circle(image, (imgx, imgy), radius=radius, color=(hue,255,255), thickness=-1)
+
+    # convert to BGR
+    image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
+    image[np.where(np.all(image == [0,0,0], axis=-1))] = background_color
+
+    # draw bounding boxes
+    for label_dict in label_dict_list:
+        x,y,z,l,w,h,yaw = label_dict['x'],label_dict['y'],label_dict['z'],label_dict['l'],label_dict['w'],label_dict['h'],label_dict['yaw']
+        yaw = np.pi/2.0 + yaw
+
+        # compute corners in birds-eye view
+        corners = []
+        corners.append([ l/2, -w/2, 0.0])
+        corners.append([ l/2,  w/2, 0.0])
+        corners.append([-l/2,  w/2, 0.0])
+        corners.append([-l/2, -w/2, 0.0])
+        corners = np.asarray(corners, dtype=np.float32)
+
+        # rotate input_points
+        M = euler2mat(yaw, 0, 0)
+        corners = (np.dot(M, corners.transpose())).transpose()
+        corners = corners + [x, y, z]
+
+        # corners in pixel
+        corners_px = []
+        for corner in corners:
+            corners_px.append([pcy_to_imgx(corner[1]), pcx_to_imgy(corner[0])])
+        corners_px = np.asarray(corners_px, dtype=np.int)
+
+        # draw bounding box
+        cv2.line(image, (corners_px[0,0], corners_px[0,1]), (corners_px[1,0], corners_px[1,1]), color=(0,0,0), thickness=6)
         cv2.line(image, (corners_px[0,0], corners_px[0,1]), (corners_px[1,0], corners_px[1,1]), color=(255,0,0), thickness=2)
         cv2.line(image, (corners_px[1,0], corners_px[1,1]), (corners_px[2,0], corners_px[2,1]), color=(255,0,0), thickness=2)
         cv2.line(image, (corners_px[2,0], corners_px[2,1]), (corners_px[3,0], corners_px[3,1]), color=(255,0,0), thickness=2)
@@ -350,8 +353,8 @@ def draw_point_cloud_w_bbox_id(input_points, label_dict_list, canvasSize=1200, r
             (tl[0],tl[1]-5), 
             cv2.FONT_HERSHEY_SIMPLEX, 
             0.6,
-            color=(255,255,255),
-            thickness=1,
+            color=text_color,
+            thickness=2,
             lineType=2)
 
     # scale between 0.0 and 1.0
@@ -425,28 +428,28 @@ def draw_bbox_img(img, label_dict_cam, K):
         cv2.line(img, (pts_2d[3][0], pts_2d[3][1]), (pts_2d[7][0], pts_2d[7][1]), color=RED, thickness=2)
 
         # bottom face
-        cv2.fillConvexPoly(img_copy, np.array([pts_2d[2,:], pts_2d[3,:], pts_2d[7,:], pts_2d[6,:]], dtype=np.int32), color=BLUE)
+        # cv2.fillConvexPoly(img_copy, np.array([pts_2d[2,:], pts_2d[3,:], pts_2d[7,:], pts_2d[6,:]], dtype=np.int32), color=BLUE)
 
-        # get minimum x and y
-        x_min = min(pts_2d[:,0])
-        y_min = min(pts_2d[:,1])
+        # # get minimum x and y
+        # x_min = min(pts_2d[:,0])
+        # y_min = min(pts_2d[:,1])
 
-        # a rectangle behind text
-        cv2.rectangle(img, (x_min,y_min-20), (x_min+150,y_min), color=(0,0,0), thickness=-1)
-        cv2.rectangle(img_copy, (x_min,y_min-20), (x_min+150,y_min), color=(0,0,0), thickness=-1)
+        # # a rectangle behind text
+        # cv2.rectangle(img, (x_min,y_min-20), (x_min+150,y_min), color=(0,0,0), thickness=-1)
+        # cv2.rectangle(img_copy, (x_min,y_min-20), (x_min+150,y_min), color=(0,0,0), thickness=-1)
 
-        # write object class
-        cv2.putText(img, label['class']+' {:.1f}%'.format(label['conf']*100.0), 
-            (x_min+5, y_min-5), 
-            cv2.FONT_HERSHEY_COMPLEX, 
-            0.6,
-            color=(255,255,255),
-            thickness=1,
-            lineType=2)
+        # # write object class
+        # cv2.putText(img, label['class']+' {:.1f}%'.format(label['conf']*100.0), 
+        #     (x_min+5, y_min-5), 
+        #     cv2.FONT_HERSHEY_COMPLEX, 
+        #     0.6,
+        #     color=(255,255,255),
+        #     thickness=1,
+        #     lineType=2)
 
     # return image
-    img_ret = cv2.addWeighted(img, 1.0, img_copy, 1.0, 0.)
-    return img_ret
+    # img_ret = cv2.addWeighted(img, 1.0, img_copy, 0.5, 0.)
+    return img
 
 def build_label_vector(label_dict_list, n_xgrids, n_ygrids,
                         xlim=(0.0, 70.0), ylim=(-50.0,50.0), zlim=(-10.0,10.0)):
@@ -852,7 +855,7 @@ def get_reprojection_vis(img_left, img_right, depth_pred, f, baseline):
     # text on the visualization image
     x_center = int(img_l.shape[1] / 2)
     img_l = cv2.cvtColor(img_l, cv2.COLOR_RGB2BGR)
-    cv2.rectangle(img_l, (x_center-300,10), (x_center+300,60), color=(0,0,0), thickness=-1)
+    cv2.rectangle(img_l, (x_center-300,0), (x_center+300,60), color=(0,0,0), thickness=-1)
     cv2.putText(img_l, 'left image', 
                 (x_center-100,40), 
                 cv2.FONT_HERSHEY_COMPLEX, 

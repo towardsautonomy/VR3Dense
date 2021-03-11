@@ -7,11 +7,8 @@ from src.utils import *
 from src.AB3DMOT.AB3DMOT_libs.model import AB3DMOT
 
 # data path
-test_pc_path = '/media/shubham/GoldMine/datasets/KITTI/raw/2011_09_26/2011_09_26_drive_0104_sync/velodyne_points/data'
-test_img_path = '/media/shubham/GoldMine/datasets/KITTI/raw/2011_09_26/2011_09_26_drive_0104_sync/image_02/data'
-
-# test_pc_path = '/media/shubham/GoldMine/datasets/KITTI/object/testing/velodyne'
-# test_img_path = '/media/shubham/GoldMine/datasets/KITTI/object/testing/image_2'
+test_pc_path = '/media/shubham/GoldMine/datasets/KITTI/raw/2011_09_26/2011_09_26_drive_0009_sync/velodyne_points/data'
+test_img_path = '/media/shubham/GoldMine/datasets/KITTI/raw/2011_09_26/2011_09_26_drive_0009_sync/image_02/data'
 
 # get device info
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -28,14 +25,15 @@ T_lidar2cam = np.array([[ 0.0002, -0.9999, -0.0106,  0.0594],
                         [ 0.9999,  0.0001,  0.0105, -0.2721],
                         [ 0.,      0.,      0.,      1.    ]])
 
-canvasSize = 1200
+# canvas size
+canvasSize = 800
 
 ## config parameters
 # tracker
 TRACKING = True
 # write frames to file
 WRITE_TO_FILE = False
-OUT_DIR = 'tmp/vr3dense_demo_scene104'
+OUT_DIR = 'tmp/vr3dense_demo'
 
 # main function
 if __name__ == "__main__":

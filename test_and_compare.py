@@ -58,7 +58,8 @@ if __name__ == "__main__":
                       max_depth=args.max_depth, vol_size_x=args.vol_size_x, vol_size_y=args.vol_size_y, vol_size_z=args.vol_size_z, \
                       img_size_x=args.img_size_x, img_size_y=args.img_size_y, loss_weights=loss_weights, \
                       modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
-                      model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps)
+                      model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps, \
+                      train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only)
 
     # get a list of point-cloud bin files
     dataset = KITTIObjectDataset(dataroot=args.dataroot, \
@@ -76,7 +77,7 @@ if __name__ == "__main__":
 
         ## get predicted labels visualization
         # perform prediction
-        pred_tuple = trainer.predict(sample['cloud'], sample['left_image'])
+        pred_tuple, dt = trainer.predict(sample['cloud'], sample['left_image'])
         if args.dense_depth:
             label_dict, dense_depth = pred_tuple
 
