@@ -28,6 +28,10 @@ def parse_args():
                         help='directory containing point-cloud files as .bin')
     parser.add_argument('--img_dir', type=str, default='./data/KITTI/raw/image_2/data',
                         help='directory containing RGB images as .png')
+    parser.add_argument('--eval_object', default=False, action='store_true',
+                        help='whether or not to evaluate 3d object detection')
+    parser.add_argument('--eval_depth', default=False, action='store_true',
+                        help='whether or not to evaluate monocular depth estimation')
     parser.add_argument('--model_save_steps', type=int, default=20,
                         help='number of steps to save the model')
     parser.add_argument('--early_stop_steps', type=int, default=20,

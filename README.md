@@ -40,8 +40,9 @@ VR3Dense jointly trains for 3D object detection as well as semi-supervised dense
 
 ### 1. Training on KITTI Object Dataset
 
-Please download *left*, *right*, *velodyne* data, and *labels* from here: http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d and extract them. 
+Download *left*, *right*, *velodyne* data, and *labels* from here: http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d and extract them. 
 The network can be trained as: 
+
 ```
 python train.py --dataroot={KITTI_OBJECT_TRAINING_DATAROOT} \
                 --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti \

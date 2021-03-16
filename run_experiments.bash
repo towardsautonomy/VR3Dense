@@ -66,7 +66,8 @@ elif [ "$MODE" == "evaluate" ]; then
         # evaluate
         python src/eval_kitti.py --pc_dir /media/shubham/GoldMine/datasets/KITTI/object/testing/velodyne \
                                  --img_dir /media/shubham/GoldMine/datasets/KITTI/object/testing/image_2 \
-                                 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --dense_depth --concat_latent_vector --exp_id=kitti
+                                 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 \
+                                 --dense_depth --concat_latent_vector --eval_object --eval_depth --exp_id=kitti
     fi
 
     if [ "$OPTION" == "ablation" ]; then
@@ -75,28 +76,28 @@ elif [ "$MODE" == "evaluate" ]; then
                                  --img_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/image_2 \
                                  --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti_no_latent_concat \
                                  --lambda_depth_l2_loss=0 --lambda_depth_smooth_loss=0 \
-                                 --dense_depth
+                                 --dense_depth --eval_depth
         
         python src/eval_kitti.py --pc_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/velodyne \
                                  --img_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/image_2 \
                                  --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti_no_latent_concat_add_l2 \
                                  --lambda_depth_smooth_loss=0 \
-                                 --dense_depth
+                                 --dense_depth --eval_depth
 
         python src/eval_kitti.py --pc_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/velodyne \
                                  --img_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/image_2 \
                                  --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti_no_latent_concat_add_l2_add_smooth \
-                                 --dense_depth
+                                 --dense_depth --eval_depth
 
         python src/eval_kitti.py --pc_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/velodyne \
                                  --img_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/image_2 \
                                  --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti_no_latent_concat_add_l2_add_edge_preserv_smooth \
-                                 --dense_depth
+                                 --dense_depth --eval_depth
 
         python src/eval_kitti.py --pc_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/velodyne \
                                  --img_dir /media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/image_2 \
                                  --epochs=100 --batch_size=8 --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --exp_id=kitti_latent_concat_add_l2_add_edge_preserv_smooth \
-                                 --dense_depth --concat_latent_vector
+                                 --dense_depth --eval_depth --concat_latent_vector
     fi
 
 elif [ "$MODE" == "compute_map" ]; then

@@ -28,10 +28,6 @@ T_lidar2cam = [[ 0.0002, -0.9999, -0.0106,  0.0594],
                [ 0.9999,  0.0001,  0.0105, -0.2721],
                [ 0.,      0.,      0.,      1.    ]]
 
-# evaluate object/depth
-eval_object = True
-eval_depth = False
-
 # main function
 if __name__ == "__main__":
     
@@ -91,7 +87,7 @@ if __name__ == "__main__":
         if args.dense_depth:
             label_dict, dense_depth = pred_tuple
 
-            if eval_depth:
+            if args.eval_depth:
                 projected_gt = project_pc2image(velo_pc, T_lidar2cam, K, (img_rgb.shape[1], img_rgb.shape[0]))
                 dense_depth = cv2.resize(dense_depth, (img_rgb.shape[1], img_rgb.shape[0]), interpolation = cv2.INTER_NEAREST) 
                 depth_metrics = compute_depth_metrics(projected_gt, dense_depth, max_depth=70.0)
@@ -111,11 +107,11 @@ if __name__ == "__main__":
         print('\rInference done on: {}'.format(fname+'.bin/.png'), end='')
     print()
 
-    if eval_object:
+    if args.eval_object:
         # write to file
         predictions2file(label_dict_list, filenames, resolution=(1242, 375), K=K, exp=exp_id)
 
-    if eval_depth:
+    if args.eval_depth:
         # print depth evaluation metrics
         depth_metrics_list = np.array(depth_metrics_list, dtype=np.float32)
         print('| ========================================================================== |')
