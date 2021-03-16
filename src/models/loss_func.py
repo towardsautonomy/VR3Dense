@@ -338,7 +338,7 @@ class DepthSmoothnessLoss(nn.Module):
     def __init__(self, lambda_weight=1.0, alpha=0.5):
         super(DepthSmoothnessLoss, self).__init__()
         self.lambda_weight = lambda_weight
-        self.grad_alpha = alpha
+        self.beta_edge = alpha
         self.edge_preserverance_loss = DepthEdgePreserveranceLoss()
         # grayscale transformation
         self.to_grayscale = transforms.Compose([
@@ -360,7 +360,7 @@ class DepthSmoothnessLoss(nn.Module):
         # preserve edges
         edge_preserverance_loss_ = self.edge_preserverance_loss(img, depth_pred)
 
-        return self.lambda_weight * ((self.grad_alpha * edge_preserverance_loss_) + ((1. - self.grad_alpha) * edge_aware_smooth_loss_))
+        return self.lambda_weight * ((self.beta_edge * edge_preserverance_loss_) + ((1. - self.beta_edge) * edge_aware_smooth_loss_))
 
 class DepthEdgePreserveranceLoss(nn.Module):
     def __init__(self, lambda_weight=1.0, device='cuda'):

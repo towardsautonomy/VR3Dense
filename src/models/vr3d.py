@@ -223,7 +223,7 @@ class EncoderBlock(nn.Module):
 
 class DecoderBlock(nn.Module):
 
-    def __init__(self, in_channels, out_channels, normalization=True, norm_type='instance_norm'):
+    def __init__(self, in_channels, out_channels, normalization=False, norm_type='instance_norm'):
 
         super(DecoderBlock, self).__init__() 
 
@@ -257,9 +257,9 @@ class DecoderBlock(nn.Module):
         upsampled_x = self.convC(upsampled_x)
         upsampled_x = self.leakyrelu(upsampled_x)
         if self.normalization == True and self.norm_type == 'instance_norm':
-            x = self.instance_norm(x)
+            upsampled_x = self.instance_norm(upsampled_x)
         elif self.normalization == True and self.norm_type == 'batch_norm':
-            x = self.batch_norm(x)
+            upsampled_x = self.batch_norm(upsampled_x)
 
         return upsampled_x
 

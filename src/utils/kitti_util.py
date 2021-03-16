@@ -75,6 +75,8 @@ def predictions2file(label_dict_list_all, txt_filenames, resolution, K, out_fold
                     y_proj = y_cam
                     y_cam = y_cam + (h / 2.0)
                     rotation_y = np.pi - orientation
+                    if rotation_y < -np.pi: rotation_y += np.pi
+                    elif rotation_y > np.pi: rotation_y -= np.pi
                     # extract vertices of bboxes
                     pts_3d = []
 

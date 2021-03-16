@@ -3,9 +3,9 @@ import numpy as np
 import os
 import shutil
 
-n_test_samples = 100
-kitti_path = '/media/shubham/GoldMine/datasets/KITTI/object/testing/'
-kitti_val_dst_path = '/media/shubham/GoldMine/datasets/KITTI/object_subset/testing/'
+n_test_samples = 3769
+kitti_path = '/media/shubham/GoldMine/datasets/KITTI/object_trainval/training/'
+kitti_val_dst_path = '/media/shubham/GoldMine/datasets/KITTI/object_trainval/testing/'
 kitti_val_img2_path = kitti_val_dst_path + 'image_2/'
 kitti_val_img3_path = kitti_val_dst_path + 'image_3/'
 kitti_val_velo_path = kitti_val_dst_path + 'velodyne/'
@@ -39,10 +39,10 @@ for idx, txt_file in enumerate(txt_files):
         dst_img3_file = kitti_val_img3_path + str(idx).zfill(6) + '.png'
         dst_velo_file = kitti_val_velo_path + str(idx).zfill(6) + '.bin'
         # move these files
-        shutil.copy(txt_file, dst_txt_file)
-        shutil.copy(img2_file, dst_img2_file)
-        shutil.copy(img3_file, dst_img3_file)
-        shutil.copy(velo_file, dst_velo_file)
+        shutil.move(txt_file, dst_txt_file)
+        shutil.move(img2_file, dst_img2_file)
+        shutil.move(img3_file, dst_img3_file)
+        shutil.move(velo_file, dst_velo_file)
 
-        print('Copied files:')
+        print('Moved files:')
         print('{} -> {}'.format(txt_file, dst_txt_file))

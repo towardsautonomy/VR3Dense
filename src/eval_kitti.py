@@ -14,10 +14,6 @@ from trainer import Trainer
 from models import *
 from utils import *
 
-# data path
-test_pc_path = '/media/shubham/GoldMine/datasets/KITTI/object/testing/velodyne'
-test_img_path = '/media/shubham/GoldMine/datasets/KITTI/object/testing/image_2'
-
 # get device info
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -34,7 +30,7 @@ T_lidar2cam = [[ 0.0002, -0.9999, -0.0106,  0.0594],
 
 # evaluate object/depth
 eval_object = True
-eval_depth = True
+eval_depth = False
 
 # main function
 if __name__ == "__main__":
@@ -50,22 +46,6 @@ if __name__ == "__main__":
                     args.learning_rate, args.n_xgrids, args.n_ygrids, args.xmin, args.xmax, args.ymin, args.ymax, \
                     args.zmin, args.zmax, args.max_depth, args.vol_size_x, args.vol_size_y, args.vol_size_z, args.img_size_x, \
                     args.img_size_y, args.dense_depth, args.concat_latent_vector, exp_id)
-    
-    # lambda weights
-    loss_weights = [args.lambda_conf_loss, 
-                      args.lambda_x_loss,
-                      args.lambda_y_loss,
-                      args.lambda_z_loss,
-                      args.lambda_l_loss,
-                      args.lambda_w_loss,
-                      args.lambda_h_loss,
-                      args.lambda_yaw_loss,
-                      args.lambda_iou_loss,
-                      args.lambda_class_loss,
-                      args.lambda_depth_unsup_loss,
-                      args.lambda_depth_l2_loss,
-                      args.lambda_depth_smooth_loss,
-                      args.alpha_depth_smooth_loss]
 
     # define model
     obj_label_len = len(pose_fields) + len(label_map) # 9 for poses, rest for object classes
@@ -83,12 +63,12 @@ if __name__ == "__main__":
                       epochs=args.epochs, batch_size=args.batch_size, learning_rate=args.learning_rate, \
                       xmin=args.xmin, xmax=args.xmax, ymin=args.ymin, ymax=args.ymax, zmin=args.zmin, zmax=args.zmax, \
                       max_depth=args.max_depth, vol_size_x=args.vol_size_x, vol_size_y=args.vol_size_y, vol_size_z=args.vol_size_z, \
-                      img_size_x=args.img_size_x, img_size_y=args.img_size_y, loss_weights=loss_weights, \
+                      img_size_x=args.img_size_x, img_size_y=args.img_size_y, loss_weights=[], \
                       modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
                       model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps)
 
     # get a list of point-cloud bin files
-    pc_filenames = sorted(glob.glob(os.path.join(test_pc_path, '*.bin')))
+    pc_filenames = sorted(glob.glob(os.path.join(args.pc_dir, '*.bin')))
     label_dict_list, depth_metrics_list, filenames = [], [], []
 
     # log time
@@ -102,7 +82,7 @@ if __name__ == "__main__":
         # read corresponding image
         fname, file_ext = os.path.splitext(pc_filename)
         fname = fname.split('/')[-1]
-        img_fname = os.path.join(test_img_path, fname+'.png')
+        img_fname = os.path.join(args.img_dir, fname+'.png')
         img_bgr = cv2.imread(img_fname)
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
@@ -128,7 +108,8 @@ if __name__ == "__main__":
         time_taken.append(dt)
 
         # print info
-        print('Inference done on: {}'.format(fname+file_ext))
+        print('\rInference done on: {}'.format(fname+'.bin/.png'), end='')
+    print()
 
     if eval_object:
         # write to file

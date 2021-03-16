@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore")
 
 class KITTIObjectDataset(Dataset):
 
-    def __init__(self, dataroot, n_xgrids, n_ygrids, 
+    def __init__(self, dataroot, n_xgrids, n_ygrids, mode='train', 
                        xlim=(0.0, 70.0), ylim=(-40.0, 40.0), zlim=(-2.5, 1.0),
                        vol_size=(512,512,32), img_size=(256,256)):
         """
@@ -32,7 +32,10 @@ class KITTIObjectDataset(Dataset):
         """
         # paths
         self.dataroot = dataroot
-        self.train_dir = os.path.join(dataroot, 'training')
+        if mode == 'train':
+            self.train_dir = os.path.join(dataroot, 'training')
+        elif mode == 'test':
+            self.train_dir = os.path.join(dataroot, 'testing')
         self.left_image_dir = os.path.join(self.train_dir, 'image_2')
         self.right_image_dir = os.path.join(self.train_dir, 'image_3')
         self.label_dir = os.path.join(self.train_dir, 'label_2')

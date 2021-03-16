@@ -79,48 +79,50 @@ class Trainer(object):
         # image size
         self.img_size = (img_size_x, img_size_y)
         # mode
-        if mode == 'train':
+        if dataset is not None:
             # dataset
-            self.dataset = dataset(dataroot, n_xgrids=n_xgrids, n_ygrids=n_ygrids, \
+            self.dataset = dataset(dataroot, n_xgrids=n_xgrids, n_ygrids=n_ygrids, mode=mode, \
                                     xlim=self.xlim, ylim=self.ylim, zlim=self.zlim,
                                     vol_size=self.vol_size, img_size=self.img_size)
-            # train test split
-            self.test_split = test_split
-            self.train_test_lengths = [int(len(self.dataset) - int(len(self.dataset)*self.test_split)), int(len(self.dataset)*self.test_split)]
 
-            self.train_dataset, self.test_dataset = random_split(self.dataset, self.train_test_lengths)
-            # dataloaders
-            if(len(self.train_dataset) > 0):
-                self.train_dataloader = DataLoader(self.train_dataset, batch_size=batch_size,
-                                            shuffle=True, num_workers=4, collate_fn=self.collate_fn)
-            if(len(self.test_dataset) > 0):
-                self.test_dataloader = DataLoader(self.test_dataset, batch_size=batch_size,
-                                            shuffle=True, num_workers=4, collate_fn=self.collate_fn)
-                                
-            # loss functions
-            self.conf_loss = ConfLoss(lambda_weight=loss_weights[0])
-            self.x_loss = XLoss(lambda_weight=loss_weights[1])
-            self.y_loss = YLoss(lambda_weight=loss_weights[2])
-            self.z_loss = ZLoss(lambda_weight=loss_weights[3])
-            self.l_loss = LLoss(lambda_weight=loss_weights[4])
-            self.w_loss = WLoss(lambda_weight=loss_weights[5])
-            self.h_loss = HLoss(lambda_weight=loss_weights[6])
-            self.yaw_loss = YawLoss(lambda_weight=loss_weights[7])
-            self.iou_loss = IOULoss(lambda_weight=loss_weights[8])
-            self.class_loss = ClassLoss(lambda_weight=loss_weights[9])
-            self.depth_unsupervised_loss = DepthUnsupervisedLoss(lambda_weight=loss_weights[10])
-            self.depth_l2_loss = DepthL2Loss(lambda_weight=loss_weights[11])
-            self.depth_smoothness_loss = DepthSmoothnessLoss(lambda_weight=loss_weights[12], alpha=loss_weights[13])
-            # Mean IOU
-            self.mean_iou = MeanIOU()
-            # training modes
-            self.train_depth_only = train_depth_only
-            self.train_obj_only = train_obj_only
+            if mode == 'train':
+                # train test split
+                self.test_split = test_split
+                self.train_test_lengths = [int(len(self.dataset) - int(len(self.dataset)*self.test_split)), int(len(self.dataset)*self.test_split)]
 
-            # optimizer
-            optimization_params = list(self.model.parameters()) + list(self.depth_smoothness_loss.parameters())
-            # optimization_params = list(self.model.parameters())
-            self.optimizer  = torch.optim.Adam(params=optimization_params, lr=self.learning_rate)
+                self.train_dataset, self.test_dataset = random_split(self.dataset, self.train_test_lengths)
+                # dataloaders
+                if(len(self.train_dataset) > 0):
+                    self.train_dataloader = DataLoader(self.train_dataset, batch_size=batch_size,
+                                                shuffle=True, num_workers=4, collate_fn=self.collate_fn)
+                if(len(self.test_dataset) > 0):
+                    self.test_dataloader = DataLoader(self.test_dataset, batch_size=batch_size,
+                                                shuffle=True, num_workers=4, collate_fn=self.collate_fn)
+                                    
+                # loss functions
+                self.conf_loss = ConfLoss(lambda_weight=loss_weights[0])
+                self.x_loss = XLoss(lambda_weight=loss_weights[1])
+                self.y_loss = YLoss(lambda_weight=loss_weights[2])
+                self.z_loss = ZLoss(lambda_weight=loss_weights[3])
+                self.l_loss = LLoss(lambda_weight=loss_weights[4])
+                self.w_loss = WLoss(lambda_weight=loss_weights[5])
+                self.h_loss = HLoss(lambda_weight=loss_weights[6])
+                self.yaw_loss = YawLoss(lambda_weight=loss_weights[7])
+                self.iou_loss = IOULoss(lambda_weight=loss_weights[8])
+                self.class_loss = ClassLoss(lambda_weight=loss_weights[9])
+                self.depth_unsupervised_loss = DepthUnsupervisedLoss(lambda_weight=loss_weights[10])
+                self.depth_l2_loss = DepthL2Loss(lambda_weight=loss_weights[11])
+                self.depth_smoothness_loss = DepthSmoothnessLoss(lambda_weight=loss_weights[12], alpha=loss_weights[13])
+                # Mean IOU
+                self.mean_iou = MeanIOU()
+                # training modes
+                self.train_depth_only = train_depth_only
+                self.train_obj_only = train_obj_only
+
+                # optimizer
+                optimization_params = list(self.model.parameters()) + list(self.depth_smoothness_loss.parameters())
+                # optimization_params = list(self.model.parameters())
+                self.optimizer  = torch.optim.Adam(params=optimization_params, lr=self.learning_rate)
 
     def collate_fn(self, batch):
         return zip(*[(b['cloud_voxelized'], b['label_vector'], b['left_image_resized'], b['right_image_resized'], b['lidar_cam_projection'], b['left_image'], b['right_image']) for b in batch])
@@ -268,12 +270,15 @@ class Trainer(object):
                             # perform back-propagation
                             depth_loss.backward(retain_graph=True) 
                             obj_loss.backward()
+                            total_loss = depth_loss.item()+obj_loss.item()
                         elif self.train_depth_only:
                             # perform back-propagation
                             depth_loss.backward() 
+                            total_loss = depth_loss.item()
                         elif self.train_obj_only:
                             # perform back-propagation
                             obj_loss.backward()
+                            total_loss = obj_loss.item()
 
                         # compute mean iou
                         train_mean_iou = self.mean_iou(y_pose_batch, pose_pred).item()
@@ -294,7 +299,7 @@ class Trainer(object):
                                         'depth_unsupervised_loss': depth_unsupervised_loss.item(),
                                         'depth_l2_loss':           depth_l2_loss.item(),
                                         'depth_smooth_loss':       depth_smooth_loss_item,
-                                        'total_loss':              depth_loss.item()+obj_loss.item()}
+                                        'total_loss':              total_loss}
 
                         # clear graph and subgraphs to avoid memory leak
                         depth_loss, total_loss = None, None

@@ -2,6 +2,7 @@
 import torch
 from torchsummary import summary
 import hiddenlayer as hl
+import yaml
 from src import parse_args, Trainer
 from src.datasets import KITTIObjectDataset
 from src.models import *
@@ -25,12 +26,14 @@ if __name__ == "__main__":
     args = parse_args()
 
     # print arguments
+    vr3dense_args = {}
     print('==========================================================')
     print('Training with the following parameters:')
     print('==========================================================')
     for arg in vars(args):
         print('{0:>25}: '.format(arg), end='')
         print('{}'.format(getattr(args, arg)))
+        vr3dense_args[arg] = getattr(args, arg)
     print('==========================================================')
 
     # experiment string
@@ -84,6 +87,9 @@ if __name__ == "__main__":
     dummy_x_camera = torch.randn(1,3,args.img_size_x,args.img_size_y).to(device)
     hl_graph = hl.build_graph(model, (dummy_x_lidar, dummy_x_camera))
     hl_graph = hl_graph.save(os.path.join(model_exp_dir, 'model'))
+    # write training hyperparameters to yaml file
+    with open(os.path.join(model_exp_dir, 'vr3dense_args.yaml'), 'w') as outfile:
+        yaml.dump(vr3dense_args, outfile, default_flow_style=False)
 
     # load weights
     best_ckpt_model = os.path.join(model_exp_dir, 'checkpoint_best.pt')

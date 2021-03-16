@@ -248,17 +248,17 @@ def draw_point_cloud_w_bbox(input_points, label_dict_list, canvasSize=800, radiu
         cv2.line(image, (corners_px[2,0], corners_px[2,1]), (corners_px[3,0], corners_px[3,1]), color=(255,0,0), thickness=2)
         cv2.line(image, (corners_px[3,0], corners_px[3,1]), (corners_px[0,0], corners_px[0,1]), color=(255,0,0), thickness=2)
 
-        # # get top-left coordinates
-        # tl = (np.min(corners_px[:,0]), np.min(corners_px[:,1]))
+        # get top-left coordinates
+        tl = (np.min(corners_px[:,0]), np.min(corners_px[:,1]))
 
-        # # write class
-        # cv2.putText(image, '{} {:.1f}%'.format(label_dict['class'], label_dict['conf']*100.0), 
-        #     (tl[0],tl[1]-5), 
-        #     cv2.FONT_HERSHEY_SIMPLEX, 
-        #     0.5,
-        #     color=text_color,
-        #     thickness=1,
-        #     lineType=2)
+        # write class
+        cv2.putText(image, '{} {:.1f}%'.format(label_dict['class'], label_dict['conf']*100.0), 
+            (tl[0],tl[1]-5), 
+            cv2.FONT_HERSHEY_SIMPLEX, 
+            0.6,
+            color=text_color,
+            thickness=2,
+            lineType=2)
 
     # scale between 0.0 and 1.0
     image = image.astype(np.float32) / 255.0
@@ -509,7 +509,7 @@ def build_label_vector(label_dict_list, n_xgrids, n_ygrids,
 
 def decompose_label_vector(label_vector, n_xgrids, n_ygrids,
                             xlim=(0.0, 70.0), ylim=(-50.0,50.0), zlim=(-10.0,10.0),
-                            conf_thres=0.7, nms=True, iou_thres=0.1):
+                            conf_thres=0.5, nms=True, iou_thres=0.1):
     """ Build the ground-truth label vector 
         given a set of poses, classes, and 
         number of grids.
@@ -575,6 +575,7 @@ def decompose_label_vector(label_vector, n_xgrids, n_ygrids,
             label_dict['h'] = h
             label_dict['yaw'] = yaw
             label_dict['class'] = idx_to_label(np.argmax(obj_class_one_hot[i]))
+            # label_dict['conf'] = np.max(obj_class_one_hot[i])
             label_dict_list.append(label_dict)
     
     # non-max suppression
@@ -968,3 +969,43 @@ def get_reprojection_vis(img_left, img_right, depth_pred, f, baseline):
     img_vis = cv2.cvtColor(img_vis, cv2.COLOR_BGR2RGB) 
 
     return img_vis
+
+# function to compute precision and recall
+def compute_precision_recall(poses_true_list, poses_pred_list, conf_thres=0.5, iou_thres=0.5, classes=['Car', 'Pedestrian', 'Cyclist']):
+    assert len(poses_true_list) == len(poses_pred_list)
+
+    tp, fp, fn = 0, 0, 0
+    for i, poses_pred in enumerate(poses_pred_list):
+        poses_true_filtered = []
+        poses_pred_filtered = []
+        for pose_pred in poses_pred:
+            if pose_pred['conf'] > conf_thres and pose_pred['class'] in classes: 
+                poses_pred_filtered.append(pose_pred)
+        for pose_true in poses_true_list[i]:
+            if pose_true['class'] in classes: 
+                poses_true_filtered.append(pose_true)
+        
+        # setup a checked flag
+        checked_flag_true = [False]*len(poses_true_filtered)
+        checked_flag_pred = [False]*len(poses_pred_filtered)
+
+        for m in range(len(poses_true_filtered)):
+            for n in range(len(poses_pred_filtered)):
+                if (checked_flag_true[m] == False) and (checked_flag_pred[n] == False):
+                    iou_ = iou(poses_true_filtered[m], poses_pred_filtered[n])
+                    # poses contains [class, conf, x, y, z, w, h, l, orientation]
+                    if (poses_pred_filtered[n]['conf'] >= conf_thres) and \
+                       (poses_pred_filtered[n]['class'] == poses_true_filtered[m]['class']) and \
+                        (iou_ >= iou_thres):
+                        tp += 1
+                        checked_flag_true[m] = True
+                        checked_flag_pred[n] = True
+        fp += checked_flag_pred.count(False)
+        fn += checked_flag_true.count(False)
+    
+    # compute precision and recall
+    precision = float(tp) / (float(tp + fp) + 1e-6)
+    recall = float(tp) / (float(tp + fn) + 1e-6)
+
+    # return precision and recall
+    return precision, recall

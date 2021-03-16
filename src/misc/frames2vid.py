@@ -3,7 +3,7 @@ import numpy as np
 import glob
 import os
 
-demo_path = 'tmp/vr3dense_demo'
+demo_path = '/home/shubham/workspace/skunkworks/VR3Dense/tmp/vr3dense_demo_cloud/rgbd'
 demo_frames_path = os.path.join(demo_path, '*.png')
 out_vid = os.path.join(demo_path, 'demo.mov')
 img_array = []
@@ -20,7 +20,7 @@ for i, filename in enumerate(sorted(glob.glob(demo_frames_path))):
 
 print('writing video...')
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-fps = 10
+fps = 30
 out = cv2.VideoWriter(out_vid, fourcc, fps, size)
 for i in range(len(img_array)):
     out.write(img_array[i])

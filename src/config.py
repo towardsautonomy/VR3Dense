@@ -24,6 +24,10 @@ def parse_args():
                         help='logs directory for generating CSV and tensorboard logs')
     parser.add_argument('--plotdir', type=str, default='./plots',
                         help='directory for generating plots')
+    parser.add_argument('--pc_dir', type=str, default='./data/KITTI/raw/velodyne_points/data',
+                        help='directory containing point-cloud files as .bin')
+    parser.add_argument('--img_dir', type=str, default='./data/KITTI/raw/image_2/data',
+                        help='directory containing RGB images as .png')
     parser.add_argument('--model_save_steps', type=int, default=20,
                         help='number of steps to save the model')
     parser.add_argument('--early_stop_steps', type=int, default=20,
@@ -78,7 +82,7 @@ def parse_args():
                         help='lambda weight for class loss')
     parser.add_argument('--lambda_depth_unsup_loss', type=float, default=1.0,
                         help='lambda weight for depth unsupervised loss')
-    parser.add_argument('--lambda_depth_l2_loss', type=float, default=0.5,
+    parser.add_argument('--lambda_depth_l2_loss', type=float, default=0.3,
                         help='lambda weight for depth l2 loss')
     parser.add_argument('--lambda_depth_smooth_loss', type=float, default=0.1,
                         help='lambda weight for depth edge preserving smoothness loss')

@@ -1,14 +1,14 @@
 from moviepy.editor import *
 
-video_file = 'tmp/vr3dense_demo/demo.mov'
-output_gif_file = 'tmp/vr3dense_demo/demo.gif'
+video_file = '/home/shubham/workspace/skunkworks/VR3Dense/tmp/vr3dense_demo_cloud/rgbd/demo.mov'
+output_gif_file = '/home/shubham/workspace/skunkworks/VR3Dense/tmp/vr3dense_demo_cloud/rgbd/demo.gif'
 
 # timestamps
 start_ts = (0, 0.0) # minute, seconds
-stop_ts = (0, 37.0) # minute, seconds
-resize_factor = 1.0
+stop_ts = (0, 6.0) # minute, seconds
+resize_factor = 0.7
 speed_factor = 1.0
-fps_downsample_factor = 3.0
+fps_downsample_factor = 2.0
 
 # get clip
 clip = (VideoFileClip(video_file)
