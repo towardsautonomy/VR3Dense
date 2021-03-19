@@ -88,6 +88,19 @@ For ablation study, training and evaluation can be performed by running:
 ./run_experiments evaluate ablation
 ```
 
+## Citation
+
+If you find our work useful in your research, please cite this as:
+
+```
+@misc{shrivastava2021,
+  author = {Shrivastava, Shubham},
+  title = {VR3Dense: Voxel Representation Learning for 3D Object Detection and Monocular Dense Depth Reconstruction },
+  year = {2021},
+  url = {https://github.com/towardsautonomy/VR3Dense}
+}
+```
+
 ## KITTI Evaluation
 
 To write predicted labels to files in the KITTI format: ```./run_experiments evaluate```
