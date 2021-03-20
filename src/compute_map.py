@@ -43,10 +43,7 @@ def mAP(precision, recall, n_recall_pts=41):
         recall_npts.append(recall_)
         precision_npts.append(precision_)
 
-        # break if min precision has arrived
-        if recall_diff[idx_recall] > n_recall_pts:
-            break
-
+    # compute mean
     mAP_ = np.mean(precision_npts)
     return np.array(precision_npts), np.array(recall_npts), mAP_
 
