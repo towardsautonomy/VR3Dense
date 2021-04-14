@@ -2,7 +2,7 @@
 
 VR3Dense jointly trains for 3D object detection as well as semi-supervised dense depth reconstruction. Object detection uses 3D convolutions over voxelized point-cloud to obtain 3D bounding-boxes, while dense depth reconstruction network uses an *hourglass* architecture with skip connections. The complete pipeline has been trained on KITTI object training dataset with 90% train and 10% validation split. VR3Dense supports detection and classification of the following classes: ```Car, Cyclist, Pedestrian```. VR3Dense runs at about **141.1fps** on a PC with i9 10850K processor with single NVIDIA RTX 3090 GPU.  
 
-## [[**Paper**](docs/VR3Dense__Voxel_Representation_Learning_for_3D_Object_Detection_and_Monocular_Dense_Depth_Reconstruction.pdf)]
+## [[**Paper**](docs/VR3Dense__Voxel_Representation_Learning_for_3D_Object_Detection_and_Monocular_Dense_Depth_Reconstruction.pdf)] [[**arXiv**](https://arxiv.org/abs/2104.05932)]
 
 ## Our Approach
 
@@ -95,11 +95,13 @@ For ablation study, training and evaluation can be performed by running:
 If you find our work useful in your research, please cite this as:
 
 ```
-@misc{shrivastava2021,
-  author = {Shrivastava, Shubham},
-  title = {VR3Dense: Voxel Representation Learning for 3D Object Detection and Monocular Dense Depth Reconstruction },
-  year = {2021},
-  url = {https://github.com/towardsautonomy/VR3Dense}
+@misc{shrivastava2021vr3dense,
+      title={VR3Dense: Voxel Representation Learning for 3D Object Detection and Monocular Dense Depth Reconstruction}, 
+      author={Shubham Shrivastava},
+      year={2021},
+      eprint={2104.05932},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
 }
 ```
 
