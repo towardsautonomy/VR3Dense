@@ -6,7 +6,7 @@ import time
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
-from torch.utils.data import Dataset, DataLoader
+from dataset import Dataset
 from torchvision import transforms, utils
 
 # add path to sys
@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore")
 
 class KITTIObjectDataset(Dataset):
 
-    def __init__(self, dataroot, n_xgrids, n_ygrids, mode='train', 
+    def __init__(self, dataroot, n_xgrids, n_ygrids, mean_lwh, mode='train', 
                        xlim=(0.0, 70.0), ylim=(-40.0, 40.0), zlim=(-2.5, 1.0),
                        vol_size=(512,512,32), img_size=(256,256)):
         """
@@ -62,6 +62,9 @@ class KITTIObjectDataset(Dataset):
         # labels
         self.n_xgrids = n_xgrids
         self.n_ygrids = n_ygrids
+
+        # mean lwh
+        self.mean_lwh = mean_lwh
 
         # camera intrinsic matrix
         self.K = np.array([[7.215377000000e+02, 0.000000000000e+00, 6.095593000000e+02, 4.485728000000e+01],
@@ -165,70 +168,29 @@ class KITTIObjectDataset(Dataset):
     def __len__(self):
         return len(self.left_image_filenames)
 
-    # method to get each item
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
+    # method to obtain camera intrinsics
+    def camera_intrinsics(self):
+        return self.K
 
-        left_image_filename = self.left_image_filenames[idx]
-        right_image_filename = self.right_image_filenames[idx]
-        velodyne_filename = self.velodyne_filenames[idx]
-        label_dict_list = self.label_dict_list[idx]
-        label_vector = build_label_vector(label_dict_list, self.n_xgrids, self.n_ygrids, \
-                                            xlim=self.xlim, ylim=self.ylim, zlim=self.zlim)
+    # method to obtain original image resolution [x, y]
+    def image_resolution(self):
+        return self.img_resolution
 
-        # read left image
-        left_img = cv2.cvtColor(cv2.imread(left_image_filename), cv2.COLOR_BGR2RGB)
-        left_img = cv2.resize(left_img, self.img_resolution, interpolation=cv2.INTER_LINEAR)
-        left_img_resized = cv2.resize(left_img, self.img_size)
-        left_img = np.transpose(left_img, (2,0,1))
-        left_img_resized = np.transpose(left_img_resized, (2,0,1))
+    # method to obtain lidar to camera extrinsic matrix
+    def lidar2cam(self):
+        return self.T_lidar2cam
 
-        # read right image
-        right_img = cv2.cvtColor(cv2.imread(right_image_filename), cv2.COLOR_BGR2RGB)
-        right_img = cv2.resize(right_img, self.img_resolution, interpolation=cv2.INTER_LINEAR)
-        right_img_resized = cv2.resize(right_img, self.img_size)
-        right_img = np.transpose(right_img, (2,0,1))
-        right_img_resized = np.transpose(right_img_resized, (2,0,1))
-
-        # read point-cloud
-        velo_pc = read_velo_bin(velodyne_filename)
-        # create mask
-        velo_pc_mask = np.logical_and.reduce(((velo_pc[:,0] > self.xlim[0]), (velo_pc[:,0] < self.xlim[1]), \
-                                              (velo_pc[:,1] > self.ylim[0]), (velo_pc[:,1] < self.ylim[1]), \
-                                              (velo_pc[:,2] > self.zlim[0]), (velo_pc[:,2] < self.zlim[1])))
-
-        # filter out
-        velo_pc_filtered = velo_pc[velo_pc_mask]
-
-        # convert point-cloud to volume
-        velo_pc_vol = point_cloud_to_volume(velo_pc_filtered[:,:], vol_size=self.vol_size, xlim=self.xlim, ylim=self.ylim, zlim=self.zlim)
-
-        # project points onto camera image plane
-        projected_img = project_pc2image(velo_pc, self.T_lidar2cam, self.K, (left_img.shape[2], left_img.shape[1]))
-        projected_img = cv2.resize(projected_img, self.img_size, interpolation=cv2.INTER_NEAREST)
-        projected_img[projected_img > self.max_depth] = self.max_depth
-        projected_img = projected_img[np.newaxis, ...]
-
-        sample = {'cloud': velo_pc_filtered,                    \
-                  'cloud_voxelized': velo_pc_vol,               \
-                  'left_image': left_img,                       \
-                  'left_image_resized': left_img_resized,       \
-                  'right_image': right_img,                     \
-                  'right_image_resized': right_img_resized,     \
-                  'lidar_cam_projection': projected_img,        \
-                  'label_dict': label_dict_list,                \
-                  'label_vector':label_vector,                  \
-                  'cloud_filename':self.velodyne_filenames[idx]}
-
-        return sample
+    # method to obtain mean [length, width, height]
+    def get_mean_lwh(self):
+        return self.mean_lwh
 
 # main function
 if __name__ == '__main__':
     from utils import *
 
-    dataset = KITTIObjectDataset('/media/shubham/GoldMine/datasets/KITTI/object', \
-                                 n_xgrids=32, n_ygrids=32)
+    mean_lwh = {'Car': [3.8840, 1.6286, 1.5261], 'Pedestrian': [1.7635, 0.5968, 1.7372], 'Cyclist': [0.8423, 0.6602, 1.7607]}
+    dataset = KITTIObjectDataset('/floppy/datasets/KITTI/object', \
+                                 n_xgrids=16, n_ygrids=16, xlim=(0,70), vol_size=(256,256,16), mean_lwh=mean_lwh)
 
     # visualization window
     cv2.namedWindow('VR3Dense', cv2.WINDOW_NORMAL)
@@ -237,14 +199,14 @@ if __name__ == '__main__':
     for i in range(100): 
         sample = dataset[i]
         # build label vector and then recover poses and classes
-        label_vec = build_label_vector(sample['label_dict'], dataset.n_xgrids, dataset.n_ygrids)
-        label_dict = decompose_label_vector(label_vec, dataset.n_xgrids, dataset.n_ygrids)
+        label_vec = build_label_vector(sample['label_dict'], dataset.n_xgrids, dataset.n_ygrids, dataset.mean_lwh, xlim=dataset.xlim, ylim=dataset.ylim, zlim=dataset.zlim)
+        label_dict = decompose_label_vector(label_vec, dataset.n_xgrids, dataset.n_ygrids, dataset.mean_lwh, xlim=dataset.xlim, ylim=dataset.ylim, zlim=dataset.zlim)
         # recover point-cloud from voxelized volume
-        pc_voxelized = volume_to_point_cloud(sample['cloud_voxelized'], vol_size=(512,512,32), xlim=dataset.xlim, ylim=dataset.ylim, zlim=dataset.zlim)
+        pc_voxelized = volume_to_point_cloud(sample['cloud_voxelized'], vol_size=(256,256,16), xlim=dataset.xlim, ylim=dataset.ylim, zlim=dataset.zlim)
 
         # draw point-cloud
         canvasSize = 1200
-        pc_bbox_img = draw_point_cloud_w_bbox(pc_voxelized, label_dict, canvasSize=canvasSize)
+        pc_bbox_img = draw_point_cloud_w_bbox(pc_voxelized, label_dict, canvasSize=canvasSize, xlim=dataset.xlim, ylim=dataset.ylim, zlim=dataset.zlim)
 
         # get labels in camera coordinate system
         label_cam = label_lidar2cam(label_dict, dataset.T_lidar2cam)

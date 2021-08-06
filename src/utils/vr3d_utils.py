@@ -90,7 +90,7 @@ def denormalize_w(w):
     return w * 5.0
 def denormalize_h(h):
     return h * 5.0
-
+    
 ## Image and Depth
 # normalize
 def normalize_img(img):
@@ -98,7 +98,7 @@ def normalize_img(img):
 
 # denormalize
 def denormalize_img(img):
-    return (img + 0.5) * 255.0
+    return np.array((img + 0.5) * 255.0, dtype=np.uint8)
 
 # normalize
 def normalize_depth(depth, max_depth):
@@ -451,7 +451,7 @@ def draw_bbox_img(img, label_dict_cam, K):
     # img_ret = cv2.addWeighted(img, 1.0, img_copy, 0.5, 0.)
     return img
 
-def build_label_vector(label_dict_list, n_xgrids, n_ygrids,
+def build_label_vector(label_dict_list, n_xgrids, n_ygrids, mean_lwh,
                         xlim=(0.0, 70.0), ylim=(-50.0,50.0), zlim=(-10.0,10.0)):
     """ Build the ground-truth label vector 
         given a set of poses, classes, and 
@@ -468,7 +468,7 @@ def build_label_vector(label_dict_list, n_xgrids, n_ygrids,
 
     # iterate through each pose
     for i, label_dict in enumerate(label_dict_list):
-        x,y,z,l,w,h,yaw = label_dict['x'],label_dict['y'],label_dict['z'],label_dict['l'],label_dict['w'],label_dict['h'],label_dict['yaw']
+        x,y,z,l,w,h,yaw,cls_ = label_dict['x'],label_dict['y'],label_dict['z'],label_dict['l'],label_dict['w'],label_dict['h'],label_dict['yaw'],label_dict['class']
 
         # obtain x index
         xstop = (xlim[1] - xlim[0]) / float(n_xgrids)
@@ -485,6 +485,11 @@ def build_label_vector(label_dict_list, n_xgrids, n_ygrids,
         l_norm = normalize_l(l)
         w_norm = normalize_w(w)
         h_norm = normalize_h(h)
+
+        # mean_lwh_cls = mean_lwh[cls_]
+        # l_norm = math.log(l/mean_lwh_cls[0])
+        # w_norm = math.log(w/mean_lwh_cls[1])
+        # h_norm = math.log(h/mean_lwh_cls[2])
         cos_yaw_norm = (np.cos(yaw) + 1.0) / 2.0
         sin_yaw_norm = (np.sin(yaw) + 1.0) / 2.0
         # yaw_norm = (yaw + np.pi) / (2 * np.pi)
@@ -492,7 +497,7 @@ def build_label_vector(label_dict_list, n_xgrids, n_ygrids,
 
         # class vector
         class_vec = [0.0]*len(label_map)
-        class_idx = label_to_idx(label_dict['class'])
+        class_idx = label_to_idx(cls_)
         class_vec[class_idx] = 1.0
 
         # label vector for this object
@@ -507,7 +512,7 @@ def build_label_vector(label_dict_list, n_xgrids, n_ygrids,
     # return the label vector
     return label_vector
 
-def decompose_label_vector(label_vector, n_xgrids, n_ygrids,
+def decompose_label_vector(label_vector, n_xgrids, n_ygrids, mean_lwh,
                             xlim=(0.0, 70.0), ylim=(-50.0,50.0), zlim=(-10.0,10.0),
                             conf_thres=0.5, nms=True, iou_thres=0.1):
     """ Build the ground-truth label vector 
@@ -548,6 +553,8 @@ def decompose_label_vector(label_vector, n_xgrids, n_ygrids,
         if obj_conf > conf_thres:
             # pose vector
             x_norm, y_norm, z_norm, l_norm, w_norm, h_norm, cos_yaw_norm, sin_yaw_norm = obj_poses[i]
+            cls_ = idx_to_label(np.argmax(obj_class_one_hot[i]))
+            mean_lwh_cls = mean_lwh[cls_]
 
             # get indices
             x_idx = math.floor(i / n_xgrids)
@@ -560,6 +567,9 @@ def decompose_label_vector(label_vector, n_xgrids, n_ygrids,
             l = denormalize_l(l_norm)
             w = denormalize_w(w_norm)
             h = denormalize_h(h_norm)
+            # l = mean_lwh_cls[0]*math.exp(l_norm)
+            # w = mean_lwh_cls[1]*math.exp(w_norm)
+            # h = mean_lwh_cls[2]*math.exp(h_norm)
             cos_yaw = (cos_yaw_norm * 2.0) - 1.0
             sin_yaw = (sin_yaw_norm * 2.0) - 1.0
             yaw = np.arctan2(sin_yaw, cos_yaw)

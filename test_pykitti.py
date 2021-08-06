@@ -75,7 +75,11 @@ if __name__ == "__main__":
                     args.zmin, args.zmax, args.max_depth, args.vol_size_x, args.vol_size_y, args.vol_size_z, args.img_size_x, \
                     args.img_size_y, args.dense_depth, args.concat_latent_vector, exp_id)
 
-
+    # mean dimensions
+    mean_lwh = {'Car':          args.car_mean_lwh, 
+                'Cyclist':      args.cyclist_mean_lwh,
+                'Pedestrian':   args.pedestrian_mean_lwh   }
+                
     # define model
     obj_label_len = len(pose_fields) + len(label_map) # 9 for poses, rest for object classes
     model = VR3Dense(in_channels=1, n_xgrids=args.n_xgrids, n_ygrids=args.n_ygrids, obj_label_len=obj_label_len, \
@@ -93,7 +97,7 @@ if __name__ == "__main__":
                       xmin=args.xmin, xmax=args.xmax, ymin=args.ymin, ymax=args.ymax, zmin=args.zmin, zmax=args.zmax, \
                       max_depth=args.max_depth, vol_size_x=args.vol_size_x, vol_size_y=args.vol_size_y, vol_size_z=args.vol_size_z, \
                       img_size_x=args.img_size_x, img_size_y=args.img_size_y, loss_weights=[], \
-                      modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
+                      mean_lwh=mean_lwh, modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
                       model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps)
 
     # visualization window

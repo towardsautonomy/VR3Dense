@@ -30,7 +30,7 @@ class Trainer(object):
     def __init__(self, dataroot, model, dataset, dense_depth,
                        n_xgrids, n_ygrids, epochs, batch_size, learning_rate, exp_str,
                        xmin, xmax, ymin, ymax, zmin, zmax, max_depth, vol_size_x, 
-                       vol_size_y, vol_size_z, img_size_x, img_size_y, loss_weights,
+                       vol_size_y, vol_size_z, img_size_x, img_size_y, loss_weights, mean_lwh,
                        mode='train', modeldir='./models', logdir='./logs', plotdir='./plots',
                        model_save_steps=10, early_stop_steps=10, test_split=0.1,
                        train_depth_only=False, train_obj_only=False):
@@ -78,10 +78,13 @@ class Trainer(object):
         self.vol_size = (vol_size_x, vol_size_y, vol_size_z)
         # image size
         self.img_size = (img_size_x, img_size_y)
+        # mean lwh
+        self.mean_lwh = mean_lwh
         # mode
         if dataset is not None:
             # dataset
-            self.dataset = dataset(dataroot, n_xgrids=n_xgrids, n_ygrids=n_ygrids, mode=mode, \
+            self.dataset = dataset(dataroot, n_xgrids=n_xgrids, n_ygrids=n_ygrids, 
+                                    mean_lwh=self.mean_lwh, mode=mode, \
                                     xlim=self.xlim, ylim=self.ylim, zlim=self.zlim,
                                     vol_size=self.vol_size, img_size=self.img_size)
 
@@ -618,7 +621,7 @@ class Trainer(object):
         label_pred = pose_pred.cpu().numpy()
 
         # get detections
-        label_dict = decompose_label_vector(label_pred, self.n_xgrids, self.n_ygrids, \
+        label_dict = decompose_label_vector(label_pred, self.n_xgrids, self.n_ygrids, self.mean_lwh, \
                                     xlim=self.xlim, ylim=self.ylim, zlim=self.zlim, conf_thres=conf_thres)
         
         if self.dense_depth:

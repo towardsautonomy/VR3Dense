@@ -92,6 +92,12 @@ def parse_args():
                         help='lambda weight for depth edge preserving smoothness loss')
     parser.add_argument('--alpha_depth_smooth_loss', type=float, default=0.5,
                         help='alpha for depth edge preserving smoothness loss')
+    parser.add_argument('--car_mean_lwh', nargs=3, type=float, default=[3.8840, 1.6286, 1.5261],
+                        help='mean [length width height] of objects corresponding to the category: Car')
+    parser.add_argument('--pedestrian_mean_lwh', nargs=3, type=float, default=[1.7635, 0.5968, 1.7372],
+                        help='mean [length width height] of objects corresponding to the category: Pedestrian')
+    parser.add_argument('--cyclist_mean_lwh', nargs=3, type=float, default=[0.8423, 0.6602, 1.7607],
+                        help='mean [length width height] of objects corresponding to the category: Cyclist')
     parser.add_argument('--dense_depth', default=False, action='store_true',
                         help='whether or not to use RGB-to-dense depth prediction network')
     parser.add_argument('--concat_latent_vector', default=False, action='store_true',

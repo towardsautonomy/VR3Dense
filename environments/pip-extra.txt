@@ -1,0 +1,12 @@
+opencv-python==4.2.0.34 
+matplotlib
+numpy
+scikit-learn
+pydot
+open3d
+googledrivedownloader
+numba
+filterpy
+torchsummary
+hiddenlayer
+graphviz

@@ -48,6 +48,10 @@ if __name__ == "__main__":
     # make directories
     os.system('mkdir -p {}'.format(model_exp_dir))
     
+    # mean dimensions
+    mean_lwh = {'Car':          args.car_mean_lwh, 
+                'Cyclist':      args.cyclist_mean_lwh,
+                'Pedestrian':   args.pedestrian_mean_lwh   }
     # lambda weights
     loss_weights = [args.lambda_conf_loss, 
                       args.lambda_x_loss,
@@ -109,7 +113,7 @@ if __name__ == "__main__":
                       xmin=args.xmin, xmax=args.xmax, ymin=args.ymin, ymax=args.ymax, zmin=args.zmin, zmax=args.zmax, \
                       max_depth=args.max_depth, vol_size_x=args.vol_size_x, vol_size_y=args.vol_size_y, vol_size_z=args.vol_size_z, \
                       img_size_x=args.img_size_x, img_size_y=args.img_size_y, loss_weights=loss_weights, \
-                      modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
+                      mean_lwh=mean_lwh, modeldir=args.modeldir, logdir=args.logdir, plotdir=args.plotdir, \
                       model_save_steps=args.model_save_steps, early_stop_steps=args.early_stop_steps, \
                       train_depth_only=args.train_depth_only, train_obj_only=args.train_obj_only)
 

@@ -58,9 +58,8 @@ class LidarObjectDetection_CNN(nn.Module):
         # Block 7
         self.conv3d_c7 = nn.Conv3d(self.base_filters*32, self.obj_label_len, kernel_size=3, stride=1, padding=1, bias=False)
         self.norm_lrelu_conv_c7 = self.norm_lrelu_conv(self.obj_label_len, self.obj_label_len)
-        # self.maxpool_c7 = nn.MaxPool3d((1, 1, 1), stride=(2, 1, 1))
+        self.maxpool_c7 = nn.MaxPool3d((1, 1, 1), stride=(2, 2, 2))
         self.inorm3d_c7 = nn.InstanceNorm3d(self.obj_label_len)	
-
 
     def conv_norm_lrelu(self, feat_in, feat_out):
         return nn.Sequential(
@@ -364,6 +363,7 @@ class VR3Dense(nn.Module):
             raise Exception('Only one of \'train_depth_only\', \'train_obj_only\' can be set to true at a time.')
         
         self.lidar_obj_fc_in_dim = 16*16*obj_label_len
+        # self.lidar_obj_fc_in_dim = 4608
         if dense_depth:
             in_dim = (512, 256)
             n_downsampling_blocks = 6
