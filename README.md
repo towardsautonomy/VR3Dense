@@ -18,9 +18,10 @@ VR3Dense jointly trains for 3D object detection as well as semi-supervised dense
 
 ## Getting Started
 
- - This project has been tested with `PyTorch=1.7.1` and `cuda-11.0`.  
  - Clone this project as: ```git clone https://github.com/towardsautonomy/VR3Dense.git --recursive```.    
- - We recommend setting up a *conda* environment, we provide the requirements file. Install conda environment as: ```conda env create -f conda_env.yml```.   
+ - We recommend either using a docker image or setting up a *conda* environment.
+    - For docker, we provide a docker image registry which can be pulled. We also provide a *Dockerfile* if you want to build one locally. For running within the docker image, run: `cd environments && sh run-docker.sh`.  
+    - For conda, we provide the requirements file. Install conda environment as: ```conda env create -f conda_env.yml```.   
 
 ## Demo  
 

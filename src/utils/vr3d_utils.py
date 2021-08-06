@@ -74,23 +74,6 @@ def idx_to_label(idx):
 
     return label_ret
 
-## Objects
-# normalize functions
-def normalize_l(l):
-    return l / 10.0
-def normalize_w(w):
-    return w / 5.0
-def normalize_h(h):
-    return h / 5.0
-
-# denormalize functions
-def denormalize_l(l):
-    return l * 10.0
-def denormalize_w(w):
-    return w * 5.0
-def denormalize_h(h):
-    return h * 5.0
-    
 ## Image and Depth
 # normalize
 def normalize_img(img):
@@ -482,14 +465,11 @@ def build_label_vector(label_dict_list, n_xgrids, n_ygrids, mean_lwh,
         x_norm = ((x - xlim[0]) - (x_idx * xstop)) / xstop
         y_norm = ((y - ylim[0]) - (y_idx * ystop)) / ystop
         z_norm = (z - zlim[0]) / (zlim[1] - zlim[0])
-        l_norm = normalize_l(l)
-        w_norm = normalize_w(w)
-        h_norm = normalize_h(h)
 
-        # mean_lwh_cls = mean_lwh[cls_]
-        # l_norm = math.log(l/mean_lwh_cls[0])
-        # w_norm = math.log(w/mean_lwh_cls[1])
-        # h_norm = math.log(h/mean_lwh_cls[2])
+        mean_lwh_cls = mean_lwh[cls_]
+        l_norm = math.log(l/mean_lwh_cls[0])
+        w_norm = math.log(w/mean_lwh_cls[1])
+        h_norm = math.log(h/mean_lwh_cls[2])
         cos_yaw_norm = (np.cos(yaw) + 1.0) / 2.0
         sin_yaw_norm = (np.sin(yaw) + 1.0) / 2.0
         # yaw_norm = (yaw + np.pi) / (2 * np.pi)
@@ -564,12 +544,9 @@ def decompose_label_vector(label_vector, n_xgrids, n_ygrids, mean_lwh,
             x = (x_norm * xstop) + (x_idx * xstop) + xlim[0]
             y = (y_norm * ystop) + (y_idx * ystop) + ylim[0]
             z = (z_norm * (zlim[1] - zlim[0])) + zlim[0]
-            l = denormalize_l(l_norm)
-            w = denormalize_w(w_norm)
-            h = denormalize_h(h_norm)
-            # l = mean_lwh_cls[0]*math.exp(l_norm)
-            # w = mean_lwh_cls[1]*math.exp(w_norm)
-            # h = mean_lwh_cls[2]*math.exp(h_norm)
+            l = mean_lwh_cls[0]*math.exp(l_norm)
+            w = mean_lwh_cls[1]*math.exp(w_norm)
+            h = mean_lwh_cls[2]*math.exp(h_norm)
             cos_yaw = (cos_yaw_norm * 2.0) - 1.0
             sin_yaw = (sin_yaw_norm * 2.0) - 1.0
             yaw = np.arctan2(sin_yaw, cos_yaw)
