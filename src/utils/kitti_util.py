@@ -103,7 +103,7 @@ def predictions2file(label_dict_list_all, txt_filenames, resolution, K, out_fold
                         pts_3d[i] = affineTransform(pts_3d[i], 0, orientation, 0, x_cam, y_proj, z_cam)
 
                     # get 2d projection
-                    pts_2d = np.array(pts_3d_to_2d(pts_3d, K, convert2uint=False))
+                    pts_2d = np.array(pts_3d_to_2d(pts_3d, K, convert2int=False))
 
                     # 2d bbox
                     x_min = min(pts_2d[:,0])

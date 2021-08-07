@@ -19,8 +19,8 @@ pose_vec_len = len(pose_fields)
 
 # pretrained weights
 pretrained_weights = [{'exp':'vr3d.learning_rate_0.0001.n_xgrids_16.n_ygrids_16.xlim_0.0_70.0.ylim_-25.0_25.0.zlim_-2.5_1.0.max_depth_100.0.vol_size_256x256x16.img_size_512x256.dense_depth_True.concat_latent_vector_True.exp_id_kitti',
-                      'url':'https://drive.google.com/file/d/13JVrBhcLDEDSMkfsnAn7Iuu2Sma1H-iz/view?usp=sharing',
-                      'file_id':'13JVrBhcLDEDSMkfsnAn7Iuu2Sma1H-iz'}
+                      'url':'https://drive.google.com/file/d/1h3wLV87MQCzwfglZ8eSldVRype9Ew-wd/view?usp=sharing',
+                      'file_id':'1h3wLV87MQCzwfglZ8eSldVRype9Ew-wd'}
                      ]
 
 # load pretrained weights
@@ -74,23 +74,6 @@ def idx_to_label(idx):
 
     return label_ret
 
-## Objects
-# normalize functions
-def normalize_l(l):
-    return l / 10.0
-def normalize_w(w):
-    return w / 5.0
-def normalize_h(h):
-    return h / 5.0
-
-# denormalize functions
-def denormalize_l(l):
-    return l * 10.0
-def denormalize_w(w):
-    return w * 5.0
-def denormalize_h(h):
-    return h * 5.0
-    
 ## Image and Depth
 # normalize
 def normalize_img(img):
@@ -426,7 +409,7 @@ def draw_bbox_img(img, label_dict_cam, K):
         cv2.line(img, (pts_2d[1][0], pts_2d[1][1]), (pts_2d[5][0], pts_2d[5][1]), color=RED, thickness=2)
         cv2.line(img, (pts_2d[2][0], pts_2d[2][1]), (pts_2d[6][0], pts_2d[6][1]), color=RED, thickness=2)
         cv2.line(img, (pts_2d[3][0], pts_2d[3][1]), (pts_2d[7][0], pts_2d[7][1]), color=RED, thickness=2)
-
+        
         # bottom face
         # cv2.fillConvexPoly(img_copy, np.array([pts_2d[2,:], pts_2d[3,:], pts_2d[7,:], pts_2d[6,:]], dtype=np.int32), color=BLUE)
 
@@ -482,14 +465,11 @@ def build_label_vector(label_dict_list, n_xgrids, n_ygrids, mean_lwh,
         x_norm = ((x - xlim[0]) - (x_idx * xstop)) / xstop
         y_norm = ((y - ylim[0]) - (y_idx * ystop)) / ystop
         z_norm = (z - zlim[0]) / (zlim[1] - zlim[0])
-        l_norm = normalize_l(l)
-        w_norm = normalize_w(w)
-        h_norm = normalize_h(h)
 
-        # mean_lwh_cls = mean_lwh[cls_]
-        # l_norm = math.log(l/mean_lwh_cls[0])
-        # w_norm = math.log(w/mean_lwh_cls[1])
-        # h_norm = math.log(h/mean_lwh_cls[2])
+        mean_lwh_cls = mean_lwh[cls_]
+        l_norm = math.log(l/mean_lwh_cls[0])
+        w_norm = math.log(w/mean_lwh_cls[1])
+        h_norm = math.log(h/mean_lwh_cls[2])
         cos_yaw_norm = (np.cos(yaw) + 1.0) / 2.0
         sin_yaw_norm = (np.sin(yaw) + 1.0) / 2.0
         # yaw_norm = (yaw + np.pi) / (2 * np.pi)
@@ -564,12 +544,9 @@ def decompose_label_vector(label_vector, n_xgrids, n_ygrids, mean_lwh,
             x = (x_norm * xstop) + (x_idx * xstop) + xlim[0]
             y = (y_norm * ystop) + (y_idx * ystop) + ylim[0]
             z = (z_norm * (zlim[1] - zlim[0])) + zlim[0]
-            l = denormalize_l(l_norm)
-            w = denormalize_w(w_norm)
-            h = denormalize_h(h_norm)
-            # l = mean_lwh_cls[0]*math.exp(l_norm)
-            # w = mean_lwh_cls[1]*math.exp(w_norm)
-            # h = mean_lwh_cls[2]*math.exp(h_norm)
+            l = mean_lwh_cls[0]*math.exp(l_norm)
+            w = mean_lwh_cls[1]*math.exp(w_norm)
+            h = mean_lwh_cls[2]*math.exp(h_norm)
             cos_yaw = (cos_yaw_norm * 2.0) - 1.0
             sin_yaw = (sin_yaw_norm * 2.0) - 1.0
             yaw = np.arctan2(sin_yaw, cos_yaw)
@@ -692,10 +669,10 @@ def non_max_suppression(label_dict_list, iou_threshold=0.1):
     return label_dict_list
 
 # convert 3d points to 2d
-def pts_3d_to_2d(pts_3d, K, convert2uint=True):
+def pts_3d_to_2d(pts_3d, K, convert2int=True):
     pts_2d = None
-    if convert2uint == True:
-        pts_2d = np.zeros((len(pts_3d), 2), dtype=np.uint16)
+    if convert2int == True:
+        pts_2d = np.zeros((len(pts_3d), 2), dtype=np.int)
     else:
         pts_2d = np.zeros((len(pts_3d), 2), dtype=np.float32)
     for i in range(len(pts_3d)):
@@ -707,10 +684,10 @@ def pts_3d_to_2d(pts_3d, K, convert2uint=True):
             pts_3d_ = np.transpose(pts_3d[i])
 
         pts_2d_ = np.matmul(K, pts_3d_)
-        if convert2uint == True:
-            pts_2d[i] = [np.uint16(max((pts_2d_[0]/pts_2d_[2]), 0)), np.uint16(max((pts_2d_[1]/pts_2d_[2]), 0))]
+        if convert2int == True:
+            pts_2d[i] = [np.int(pts_2d_[0]/pts_2d_[2]), np.int(pts_2d_[1]/pts_2d_[2])]
         else:
-            pts_2d[i] = [max((pts_2d_[0]/pts_2d_[2]), 0.0), max((pts_2d_[1]/pts_2d_[2]), 0.0)]
+            pts_2d[i] = [(pts_2d_[0]/pts_2d_[2]), (pts_2d_[1]/pts_2d_[2])]
 
     return np.array(pts_2d)
 

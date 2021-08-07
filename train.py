@@ -52,6 +52,7 @@ if __name__ == "__main__":
     mean_lwh = {'Car':          args.car_mean_lwh, 
                 'Cyclist':      args.cyclist_mean_lwh,
                 'Pedestrian':   args.pedestrian_mean_lwh   }
+                
     # lambda weights
     loss_weights = [args.lambda_conf_loss, 
                       args.lambda_x_loss,

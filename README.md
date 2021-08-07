@@ -1,10 +1,12 @@
 # VR3Dense: Voxel Representation Learning for 3D Object Detection and Monocular Dense Depth Reconstruction  
 
+This is the official implementation of VR3Dense. 
+ 
+### [[**Paper**](https://arxiv.org/abs/2104.05932)] [[**Video**](https://youtu.be/IkghXUdQTLs)]   
+
+![](media/VR3Dense_Poster.png)  
+
 VR3Dense jointly trains for 3D object detection as well as semi-supervised dense depth reconstruction. Object detection uses 3D convolutions over voxelized point-cloud to obtain 3D bounding-boxes, while dense depth reconstruction network uses an *hourglass* architecture with skip connections. The complete pipeline has been trained on KITTI object training dataset with 90% train and 10% validation split. VR3Dense supports detection and classification of the following classes: ```Car, Cyclist, Pedestrian```. VR3Dense runs at about **141.1fps** on a PC with i9 10850K processor with single NVIDIA RTX 3090 GPU.  
-
-## Our Approach
-
-![](media/VR3Dense_Approach.png)
 
 ## Model Predictions 
  
@@ -18,9 +20,10 @@ VR3Dense jointly trains for 3D object detection as well as semi-supervised dense
 
 ## Getting Started
 
- - This project has been tested with `PyTorch=1.7.1` and `cuda-11.0`.  
- - Clone this project as: ```git clone https://github.com/towardsautonomy/VR3Dense.git --recursive```.    
- - We recommend setting up a *conda* environment, we provide the requirements file. Install conda environment as: ```conda env create -f conda_env.yml```.   
+ - Clone this project as: ```git clone https://github.com/towardsautonomy/VR3Dense.git```.    
+ - We recommend either using a docker image or setting up a *conda* environment.
+    - For docker, we provide a docker image registry which can be pulled. We also provide a *Dockerfile* if you want to build one locally. For running within the docker image, run: `cd environments && sh run-docker.sh`.  
+    - For conda, we provide the requirements file. Install conda environment as: ```conda env create -f conda_env.yml```.   
 
 ## Demo  
 
