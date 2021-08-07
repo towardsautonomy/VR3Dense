@@ -19,8 +19,8 @@ pose_vec_len = len(pose_fields)
 
 # pretrained weights
 pretrained_weights = [{'exp':'vr3d.learning_rate_0.0001.n_xgrids_16.n_ygrids_16.xlim_0.0_70.0.ylim_-25.0_25.0.zlim_-2.5_1.0.max_depth_100.0.vol_size_256x256x16.img_size_512x256.dense_depth_True.concat_latent_vector_True.exp_id_kitti',
-                      'url':'https://drive.google.com/file/d/13JVrBhcLDEDSMkfsnAn7Iuu2Sma1H-iz/view?usp=sharing',
-                      'file_id':'13JVrBhcLDEDSMkfsnAn7Iuu2Sma1H-iz'}
+                      'url':'https://drive.google.com/file/d/1h3wLV87MQCzwfglZ8eSldVRype9Ew-wd/view?usp=sharing',
+                      'file_id':'1h3wLV87MQCzwfglZ8eSldVRype9Ew-wd'}
                      ]
 
 # load pretrained weights
@@ -409,7 +409,7 @@ def draw_bbox_img(img, label_dict_cam, K):
         cv2.line(img, (pts_2d[1][0], pts_2d[1][1]), (pts_2d[5][0], pts_2d[5][1]), color=RED, thickness=2)
         cv2.line(img, (pts_2d[2][0], pts_2d[2][1]), (pts_2d[6][0], pts_2d[6][1]), color=RED, thickness=2)
         cv2.line(img, (pts_2d[3][0], pts_2d[3][1]), (pts_2d[7][0], pts_2d[7][1]), color=RED, thickness=2)
-
+        
         # bottom face
         # cv2.fillConvexPoly(img_copy, np.array([pts_2d[2,:], pts_2d[3,:], pts_2d[7,:], pts_2d[6,:]], dtype=np.int32), color=BLUE)
 
@@ -669,10 +669,10 @@ def non_max_suppression(label_dict_list, iou_threshold=0.1):
     return label_dict_list
 
 # convert 3d points to 2d
-def pts_3d_to_2d(pts_3d, K, convert2uint=True):
+def pts_3d_to_2d(pts_3d, K, convert2int=True):
     pts_2d = None
-    if convert2uint == True:
-        pts_2d = np.zeros((len(pts_3d), 2), dtype=np.uint16)
+    if convert2int == True:
+        pts_2d = np.zeros((len(pts_3d), 2), dtype=np.int)
     else:
         pts_2d = np.zeros((len(pts_3d), 2), dtype=np.float32)
     for i in range(len(pts_3d)):
@@ -684,10 +684,10 @@ def pts_3d_to_2d(pts_3d, K, convert2uint=True):
             pts_3d_ = np.transpose(pts_3d[i])
 
         pts_2d_ = np.matmul(K, pts_3d_)
-        if convert2uint == True:
-            pts_2d[i] = [np.uint16(max((pts_2d_[0]/pts_2d_[2]), 0)), np.uint16(max((pts_2d_[1]/pts_2d_[2]), 0))]
+        if convert2int == True:
+            pts_2d[i] = [np.int(pts_2d_[0]/pts_2d_[2]), np.int(pts_2d_[1]/pts_2d_[2])]
         else:
-            pts_2d[i] = [max((pts_2d_[0]/pts_2d_[2]), 0.0), max((pts_2d_[1]/pts_2d_[2]), 0.0)]
+            pts_2d[i] = [(pts_2d_[0]/pts_2d_[2]), (pts_2d_[1]/pts_2d_[2])]
 
     return np.array(pts_2d)
 

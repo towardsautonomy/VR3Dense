@@ -295,13 +295,13 @@ def generalized_box_iou(poses1: torch.Tensor, poses2: torch.Tensor) -> torch.Ten
     area2 = box_area(poses2)
 
     lt = torch.max(poses1[:,:,pose_fields.index('x'):pose_fields.index('y')+1]
-                    -(torch.exp(poses1[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0), \
+                        -(torch.exp(poses1[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0), \
                    poses2[:,:,pose_fields.index('x'):pose_fields.index('y')+1]
-                    -(torch.exp(poses2[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0))
+                        -(torch.exp(poses2[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0))
     rb = torch.min(poses1[:,:,pose_fields.index('x'):pose_fields.index('y')+1]
-                    +(torch.exp(poses1[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0), \
+                        +(torch.exp(poses1[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0), \
                    poses2[:,:,pose_fields.index('x'):pose_fields.index('y')+1]
-                    +(torch.exp(poses2[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0))
+                        +(torch.exp(poses2[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0))
 
     wh = (rb - lt).clamp(min=0)  
 
@@ -314,10 +314,14 @@ def generalized_box_iou(poses1: torch.Tensor, poses2: torch.Tensor) -> torch.Ten
     # intersection-over-union
     iou = inter / (union + 1e-6)
 
-    lti = torch.min(poses1[:,:,1:3]-(poses1[:,:,4:6]/2.0), \
-                    poses2[:,:,1:3]-(poses2[:,:,4:6]/2.0))
-    rbi = torch.max(poses1[:,:,1:3]+(poses1[:,:,4:6]/2.0), \
-                    poses2[:,:,1:3]+(poses2[:,:,4:6]/2.0))
+    lti = torch.min(poses1[:,:,pose_fields.index('x'):pose_fields.index('y')+1]
+                        -(torch.exp(poses1[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0), \
+                    poses2[:,:,pose_fields.index('x'):pose_fields.index('y')+1]
+                        -(torch.exp(poses2[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0))
+    rbi = torch.max(poses1[:,:,pose_fields.index('x'):pose_fields.index('y')+1]
+                        +(torch.exp(poses1[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0), \
+                    poses2[:,:,pose_fields.index('x'):pose_fields.index('y')+1]
+                        +(torch.exp(poses2[:,:,pose_fields.index('l'):pose_fields.index('w')+1])/2.0))
 
     whi = (rbi - lti).clamp(min=0) 
     areai = whi[:, :, 0] * whi[:, :, 1]
