@@ -51,8 +51,8 @@ if [ "$MODE" == "train" ]; then
 
 elif [ "$MODE" == "test" ]; then
 	# test
-    python test.py --pc_dir /floppy/datasets/KITTI/raw/2011_09_26_drive_0009_sync/2011_09_26/2011_09_26_drive_0009_sync/velodyne_points/data \
-                   --img_dir /floppy/datasets/KITTI/raw/2011_09_26_drive_0009_sync/2011_09_26/2011_09_26_drive_0009_sync/image_02/data \
+    python test.py --pc_dir /floppy/datasets/KITTI/raw/2011_09_26_drive_0104_sync/2011_09_26/2011_09_26_drive_0104_sync/velodyne_points/data \
+                   --img_dir /floppy/datasets/KITTI/raw/2011_09_26_drive_0104_sync/2011_09_26/2011_09_26_drive_0104_sync/image_02/data \
                    --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --dense_depth --concat_latent_vector --exp_id=kitti
 
 elif [ "$MODE" == "test_and_compare" ]; then
@@ -103,8 +103,8 @@ elif [ "$MODE" == "evaluate" ]; then
 elif [ "$MODE" == "compute_map" ]; then
 	# evaluate
     python src/compute_precision_recall.py --dataroot=/floppy/datasets/KITTI/object \
-                                           --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --dense_depth --concat_latent_vector --exp_id=kitti_trainval   
-    python src/compute_map.py --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --dense_depth --concat_latent_vector --exp_id=kitti_trainval    
+                                           --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --dense_depth --concat_latent_vector --exp_id=kitti  
+    python src/compute_map.py --learning_rate=0.0001 --n_xgrids=16 --n_ygrids=16 --dense_depth --concat_latent_vector --exp_id=kitti   
 else
     # error
     echo -e "\e[91mMode not provided. Please run this script with one of the following modes..
